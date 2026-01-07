@@ -1,92 +1,47 @@
 #include <Arduino.h>
+#include "TiltingActuator.h"
 
-const int pinBucketDown = 29;
-const int pinBucketUp = 28;
-const int pinPotmeter = 27;
+// Maak het object aan (Global scope)
+// Pinnen: UP=28, DOWN=29, POT=27
+TiltingActuator tilting(28, 29, 27);
+void setup() {
+    Serial.begin(115200);
+    
+    // Resolutie instellen (belangrijk voor potmeter waarden in je class)
+    analogReadResolution(10); 
 
-const int deadband = 4; //Deadband for position control
-const int minPWM = 60;
-const int maxPWM = 245;
-const int maxPotValue = 785; //785
-const int minPotValue = 30; //30
-
-const int kp = 5; //Proportional gain for control
-
-int targetPosition = 0;
-int currentPosition = 0;
-int inputValue = 0;
-int inputMMValue = 0; //mm
-int speed = 0; //PWM value for motor control
-
-
-void setup(){
-  Serial.begin(115200);
-
-  pinMode(pinBucketDown, OUTPUT);
-  pinMode(pinBucketUp, OUTPUT);
-  pinMode(pinPotmeter, INPUT);
-  //Teensy 4.1 standard 10 bit ADC resolution(0-1023)
-  analogReadResolution(10);
-
-  currentPosition = analogRead(pinPotmeter);
-  targetPosition = currentPosition; //Stay in place at startup
-
+    // Start de actuator
+    tilting.begin();
+    
+    Serial.println("Avuloader Tilting System Ready.");
+    Serial.println("Typ een waarde 0-100 om te bewegen.");
 }
 
+void loop() {
+    // 1. Check voor Serial Input
+    if (Serial.available() > 0) {
+        int input = Serial.parseInt();
+        
+        // Filter ongeldige inputs (newlines geven vaak 0)
+        if (Serial.read() == '\n') { 
+             // Wees zeker dat het een echte input was
+             if(input >= 0 && input <= 100) {
+                 tilting.setTargetPosition(input);
+                 Serial.printf("Command received: %d%%\n", input);
+             }
+        }
+    }
 
-void MotorControl(int speed){
-  if(speed > 0){
-    analogWrite(pinBucketUp, speed);
-    analogWrite(pinBucketDown, 0);
-    Serial.printf("Up PWM: %d, ", speed);
-    }
-  else if(speed < 0){
-    analogWrite(pinBucketDown, -speed);
-    analogWrite(pinBucketUp, 0);
-    Serial.printf("Down PWM: %d, ", -speed);
-   }
-   else if(speed == 0){
-    analogWrite(pinBucketDown, 0);
-    analogWrite(pinBucketUp, 0);
-    Serial.print("Stopped, ");
-    }
-}
+    // 2. Update de control loop (Elke cycle uitvoeren!)
+    tilting.update();
 
-void loop(){
-  if(Serial.available() > 0){
-    inputMMValue = Serial.parseInt();
-    if(inputMMValue >= 0){
-      inputValue = map(inputMMValue, 0, 100, minPotValue, maxPotValue);
-      if(inputValue <= maxPotValue && inputValue >= minPotValue){
-        Serial.printf("Received speed: %d\n", inputValue);
-        targetPosition = inputValue;
-      }
-      else{
-        Serial.printf("Input value %d out of range (%d - %d). Ignored.\n", inputMMValue, 0, 100);
-        delay(1000);
-      }
-    }
-  }
-    currentPosition = analogRead(pinPotmeter);
-    Serial.printf("Current: %d, Target: %d\n", currentPosition, targetPosition);
-    int positionError = targetPosition - currentPosition;
-    if(abs(positionError) > deadband){
-      speed = positionError * kp;
-
-      //Constrain speed to min and max PWM values
-      if(speed > 0){
-        speed = constrain(speed, minPWM, maxPWM);
-      }
-      else{
-        speed = constrain(speed, -maxPWM, -minPWM);
-      }
-      MotorControl(speed);
-    }
-    else{
-      MotorControl(0); //Within deadband, stop motor
+    // 3. Debug Prints (optioneel, niet te vaak doen)
+    static unsigned long lastPrint = 0;
+    if (millis() - lastPrint > 200) {
+        // Je kunt nu makkelijk publieke functies aanroepen
+        // Serial.println(tilting.getCurrentPosition());
+        lastPrint = millis();
     }
     
-  delay(100); //Small delay for stability
-  }
-
-
+    delay(10);
+}
