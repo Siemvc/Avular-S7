@@ -10,7 +10,8 @@ TiltingActuator::TiltingActuator(int pinUp, int pinDown, int pinPot) {
     _minPWM = 60;
     _maxPWM = 245;
     _deadband = 4;
-    _kp = 5;
+    _kp = 7;
+    _speed = 0;
     
     // Potmeter kalibratie
     _minPot = 30;
@@ -47,23 +48,28 @@ void TiltingActuator::setMotorSpeed(int speed) {
 // 4. De Update Loop (P-Controller)
 void TiltingActuator::update() {
     _currentPos = analogRead(_pinPot);
-
     // Veiligheid: Als target nog niet gezet is, doe niks
     if (_targetPos == -1) return;
 
     int error = _targetPos - _currentPos;
 
     if (abs(error) > _deadband) {
-        int speed = error * _kp;
+        _speed = error * _kp;
+                
+        // Limit speed to min/max PWM
+        if (_speed > 0) _speed = constrain(_speed, _minPWM, _maxPWM);
+        else _speed = constrain(_speed, -_maxPWM, -_minPWM);
 
-        // Limiet erop
-        if (speed > 0) speed = constrain(speed, _minPWM, _maxPWM);
-        else speed = constrain(speed, -_maxPWM, -_minPWM);
+        setMotorSpeed(_speed);
 
-        setMotorSpeed(speed);
     } else {
         setMotorSpeed(0);
+        
     }
+    //Debug
+    Serial.printf("Pos: %d | Target: %d | Error: %d | Speed: %d\n", _currentPos, _targetPos, error, _speed);
+
+ 
 }
 
 // 5. Setter voor het doel (Accepteert 0 - 100%)

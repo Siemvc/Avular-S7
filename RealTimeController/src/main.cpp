@@ -3,7 +3,7 @@
 
 // Maak het object aan (Global scope)
 // Pinnen: UP=28, DOWN=29, POT=27
-TiltingActuator tilting(28, 29, 27);
+TiltingActuator tilting(28, 29, 27); //PinUp, PinDown, PinPot
 void setup() {
     Serial.begin(115200);
     
@@ -18,30 +18,22 @@ void setup() {
 }
 
 void loop() {
-    // 1. Check voor Serial Input
+    // 1. Check for Serial Input
     if (Serial.available() > 0) {
         int input = Serial.parseInt();
-        
-        // Filter ongeldige inputs (newlines geven vaak 0)
-        if (Serial.read() == '\n') { 
-             // Wees zeker dat het een echte input was
-             if(input >= 0 && input <= 100) {
-                 tilting.setTargetPosition(input);
-                 Serial.printf("Command received: %d%%\n", input);
-             }
+         if(input >= 0 && input <= 100) {
+            tilting.setTargetPosition(input);
+            Serial.printf("Command received: %d\n", input);
+        } 
+        else {
+            Serial.println("Invalid input. Please enter a value between 0 and 100.");
+            delay(500);
         }
     }
 
-    // 2. Update de control loop (Elke cycle uitvoeren!)
+    //Update actuator state (read potentiometer and adjust motor)
     tilting.update();
 
-    // 3. Debug Prints (optioneel, niet te vaak doen)
-    static unsigned long lastPrint = 0;
-    if (millis() - lastPrint > 200) {
-        // Je kunt nu makkelijk publieke functies aanroepen
-        // Serial.println(tilting.getCurrentPosition());
-        lastPrint = millis();
-    }
-    
+
     delay(10);
 }

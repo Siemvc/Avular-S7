@@ -21,6 +21,7 @@ private:
     // Status variabelen
     int _targetPos;
     int _currentPos;
+    int _speed;
 
     // Interne hulpfunctie (hoeft main.cpp niet te zien)
     void setMotorSpeed(int speed);
