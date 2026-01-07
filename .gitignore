@@ -1,12 +1,2 @@
-RealTimeController/.pio
-RealTimeController/.vscode/.browse.c_cpp.db*
-RealTimeController/.vscode/c_cpp_properties.json
-RealTimeController/.vscode/launch.json
-RealTimeController/.vscode/ipch
-RealTimeController/.Avular-S7.code-workspace
-TeensyActuatorTest/.pio
-TeensyActuatorTest/.vscode/.browse.c_cpp.db*
-TeensyActuatorTest/.vscode/c_cpp_properties.json
-TeensyActuatorTest/.vscode/launch.json
-TeensyActuatorTest/.vscode/ipch
 .vscode/
+.venv/
