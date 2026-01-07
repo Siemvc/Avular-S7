@@ -9,7 +9,7 @@ TiltingActuator::TiltingActuator(int pinUp, int pinDown, int pinPot) {
     // Standaard waarden (kun je hier aanpassen of via setters doen)
     _minPWM = 60;
     _maxPWM = 245;
-    _deadband = 4;
+    _deadband = 5;
     _kp = 7;
     _speed = 0;
     
