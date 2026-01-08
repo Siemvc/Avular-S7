@@ -1,15 +1,20 @@
-#ifndef TILTING_ACTUATOR_H
-#define TILTING_ACTUATOR_H
+#ifndef LIFTINGACTUATORS_H
+#define LIFTINGACTUATORS_H
 
 #include <Arduino.h>
 
-class TiltingActuator {
-private:
-    // Pinnen (Intern gebruik)
-    int _pinIN1;
-    int _pinIN2;
-    int _pinPot;
-
+class LiftingActuators {
+  private:
+    // Pin configuratie
+    int _pinIN1A;
+    int _pinIN1B;
+    int _pinIN2A;
+    int _pinIN2B;
+    int _pinENA;
+    int _pinENB;
+    int _pinPotA;
+    int _pinPotB;
+    
     // Instellingen (Intern gebruik)
     int _minPWM;
     int _maxPWM;
@@ -26,9 +31,10 @@ private:
     // Interne hulpfunctie (hoeft main.cpp niet te zien)
     void setMotorSpeed(int speed);
 
-public:
+
+  public:
     // Constructor: Hier geef je de pinnen en instellingen door
-    TiltingActuator(int pinIN1, int pinIN2, int pinPot);
+    LiftingActuators(int pinIN1A, int pinIN1B, int pinIN2A, int pinIN2B, int pinENA, int pinENB, int pinPotA, int pinPotB);
 
     // Setup functie (aanroepen in setup())
     void begin();
@@ -37,7 +43,7 @@ public:
     void update();
 
     // Functies om de actuator te besturen
-    void setTargetPosition(int percentage); // 0-100%
+    void setTargetPosition(int distance); // 0-300mm
     int getCurrentPosition();               // ADC waarde
 };
 
