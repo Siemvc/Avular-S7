@@ -1,29 +1,32 @@
-//Code voor een enkele motor aan te sturen via CAN op een Teensy 4.1 board.
+//Code voor meerdere motoren aan te sturen via CAN op een Teensy 4.1 board.
 #include <Arduino.h>
 #include <FlexCAN_T4.h>
 
 FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> Can1;
 
 // ---------------- CONFIG ----------------
-static const uint32_t DEVICE_ID = 1;
 static const uint32_t CAN_BAUD = 1000000;
 
+// Motor CAN IDs
+static const uint8_t NUM_MOTORS = 4;
+static const uint32_t MOTOR_IDS[NUM_MOTORS] = {1, 2, 3, 4};
+
+// Speed settings
 static const float SPEED_A_RPM = 500.0f;
 static const float SPEED_B_RPM = 1500.0f;
 static const uint32_t SPEED_SWITCH_MS = 5000;
 
-// REV CAN IDs (extended)
+// REV CAN base IDs (extended)
 static const uint32_t HEARTBEAT_ID = 0x2052480;
 static const uint32_t SPEED_SET_ID = 0x2050480;
 static const uint32_t STATUS_1_ID  = 0x2051840;
-
 // ---------------------------------------
 
 elapsedMillis speedTimer;
 elapsedMillis heartbeatTimer;
 
 float currentSetpoint = SPEED_A_RPM;
-float actualVelocityRPM = 0.0f;
+float actualVelocityRPM[NUM_MOTORS] = {0};
 
 // ---------------- UTILITIES ----------------
 
@@ -40,30 +43,35 @@ void sendHeartbeat() {
   Can1.write(msg);
 }
 
-void sendSpeedCommand(float rpm) {
+void sendSpeedCommandAll(float rpm) {
   CAN_message_t msg;
-  msg.id = SPEED_SET_ID + DEVICE_ID;
   msg.flags.extended = 1;
   msg.len = 8;
 
-  // Pack float RPM into first 4 bytes (little-endian)
-  memcpy(&msg.buf[0], &rpm, 4);
+  for (uint8_t i = 0; i < NUM_MOTORS; i++) {
+    msg.id = SPEED_SET_ID + MOTOR_IDS[i];
 
-  // Remaining bytes zero
-  for (int i = 4; i < 8; i++) {
-    msg.buf[i] = 0;
+    memcpy(&msg.buf[0], &rpm, 4);
+    for (int b = 4; b < 8; b++) {
+      msg.buf[b] = 0;
+    }
+
+    Can1.write(msg);
   }
-
-  Can1.write(msg);
 }
 
 void handleStatusFrame(const CAN_message_t &msg) {
-  // Status Frame 1 contains motor velocity as IEEE float
-  if ((msg.id & 0x1FFFFFFF) == (STATUS_1_ID + DEVICE_ID)) {
-    memcpy(&actualVelocityRPM, &msg.buf[0], 4);
+  uint32_t baseId = msg.id & 0x1FFFFFFF;
 
-    Serial.print("Actual Velocity (RPM): ");
-    Serial.println(actualVelocityRPM);
+  for (uint8_t i = 0; i < NUM_MOTORS; i++) {
+    if (baseId == (STATUS_1_ID + MOTOR_IDS[i])) {
+      memcpy(&actualVelocityRPM[i], &msg.buf[0], 4);
+
+      Serial.print("Motor ");
+      Serial.print(MOTOR_IDS[i]);
+      Serial.print(" Velocity (RPM): ");
+      Serial.println(actualVelocityRPM[i]);
+    }
   }
 }
 
@@ -73,13 +81,14 @@ void setup() {
   Serial.begin(115200);
   while (!Serial) {}
 
-  Serial.println("Teensy 4.1 CAN Velocity Control");
+  Serial.println("Teensy 4.1 - 4 Motor CAN Velocity Control");
 
   Can1.begin();
   Can1.setBaudRate(CAN_BAUD);
   Can1.setMaxMB(16);
   Can1.enableFIFO();
   Can1.enableFIFOInterrupt();
+
   Can1.onReceive([](const CAN_message_t &msg) {
     handleStatusFrame(msg);
   });
@@ -108,12 +117,12 @@ void loop() {
       currentSetpoint = SPEED_A_RPM;
     }
 
-    Serial.print("Commanded Speed (RPM): ");
+    Serial.print("New Commanded Speed (RPM): ");
     Serial.println(currentSetpoint);
   }
 
-  // Continuously resend speed command
-  sendSpeedCommand(currentSetpoint);
+  // Continuously command all motors
+  sendSpeedCommandAll(currentSetpoint);
 
   delay(10);
 }
