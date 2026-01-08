@@ -1,51 +1,64 @@
 #include <Arduino.h>
 #include <micro_ros_platformio.h>
-// micro-ROS includes
+#include <DHT.h> // De sensor library
+
 #include <rcl/rcl.h>
 #include <rclc/rclc.h>
 #include <rclc/executor.h>
-//Message types
-#include <std_msgs/msg/int32.h>
-#include <std_msgs/msg/bool.h> // Nieuwe message type voor de LED
 
-// Definities
-rcl_publisher_t publisher;
-rcl_subscription_t subscriber; // Nieuwe subscriber
-std_msgs__msg__Int32 msg_pub;
-std_msgs__msg__Bool msg_sub;   // Bericht om te ontvangen
+// We gebruiken Float32 voor decimalen
+#include <std_msgs/msg/float32.h>
 
+// Sensor instellingen
+const int DHTPIN = 16;
+#define DHTTYPE DHT11
+DHT dht(DHTPIN, DHTTYPE);
+
+// Micro-ROS variabelen
+rcl_publisher_t temp_publisher;
+rcl_publisher_t hum_publisher;
+std_msgs__msg__Float32 temp_msg;
+std_msgs__msg__Float32 hum_msg;
+// Executor en support structuren
 rclc_executor_t executor;
 rclc_support_t support;
 rcl_allocator_t allocator;
 rcl_node_t node;
 rcl_timer_t timer;
 
+// Error check macro's
 #define RCCHECK(fn) { rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){error_loop();}}
 #define RCSOFTCHECK(fn) { rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){}}
 
 void error_loop(){
   while(1){
-    // Snel knipperen = error
     digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
     delay(100);
   }
 }
 
-// Functie die wordt aangeroepen als we data ontvangen
-void subscription_callback(const void * msgin)
-{
-  const std_msgs__msg__Bool * msg = (const std_msgs__msg__Bool *)msgin;
-  // Zet de LED aan als data true is, uit als false
-  digitalWrite(LED_BUILTIN, (msg->data ? HIGH : LOW));
-}
-
-// Functie om data te sturen (elke seconde)
+// Deze functie wordt elke seconde aangeroepen
 void timer_callback(rcl_timer_t * timer, int64_t last_call_time)
 {
   RCLC_UNUSED(last_call_time);
   if (timer != NULL) {
-    RCSOFTCHECK(rcl_publish(&publisher, &msg_pub, NULL));
-    msg_pub.data++;
+    // 1. Lees de sensor
+    float humidity = dht.readHumidity();
+    float temperature = dht.readTemperature();
+
+    // Check of het lezen gelukt is (isnan = is not a number)
+    if (isnan(humidity) || isnan(temperature )) {
+        // Als het faalt, doen we even niks (of je kunt een error loggen)
+        return;
+    }
+
+    // 2. Vul de berichten
+    temp_msg.data = temperature;
+    hum_msg.data = humidity;
+
+    // 3. Publiceer de data
+    RCSOFTCHECK(rcl_publish(&temp_publisher, &temp_msg, NULL));
+    RCSOFTCHECK(rcl_publish(&hum_publisher, &hum_msg, NULL));
   }
 }
 
@@ -53,52 +66,46 @@ void setup() {
   Serial.begin(115200);
   set_microros_serial_transports(Serial);
 
+  // Start de sensor
+  dht.begin();
+  
   pinMode(LED_BUILTIN, OUTPUT);
-  digitalWrite(LED_BUILTIN, LOW); // Begin met LED uit
-
+  digitalWrite(LED_BUILTIN, HIGH); 
   delay(2000);
 
   allocator = rcl_get_default_allocator();
 
-  // 1. Init micro-ROS
+  // Init micro-ROS
   RCCHECK(rclc_support_init(&support, 0, NULL, &allocator));
+  RCCHECK(rclc_node_init_default(&node, "teensy_sensor_node", "", &support));
 
-  // 2. Maak Node
-  RCCHECK(rclc_node_init_default(&node, "teensy_node", "", &support));
-
-  // 3. Maak Publisher
+  // Maak Publisher voor Temperatuur
   RCCHECK(rclc_publisher_init_default(
-    &publisher,
+    &temp_publisher,
     &node,
-    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32),
-    "micro_ros_teensy_count"));
+    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32),
+    "sensor/temperature"));
 
-  // 4. Maak Subscriber (NIEUW)
-  RCCHECK(rclc_subscription_init_default(
-    &subscriber,
+  // Maak Publisher voor Luchtvochtigheid
+  RCCHECK(rclc_publisher_init_default(
+    &hum_publisher,
     &node,
-    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Bool),
-    "teensy_led"));
+    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32),
+    "sensor/humidity"));
 
-  // 5. Maak Timer
+  // Timer: 1 seconde), dit is de sample rate van de sensor (ja hij is echt zo traag)
   RCCHECK(rclc_timer_init_default(
     &timer,
     &support,
     RCL_MS_TO_NS(1000),
     timer_callback));
 
-  // 6. Executor Setup (Let op: handles verhoogd naar 2 omdat we nu pub én sub hebben)
-  RCCHECK(rclc_executor_init(&executor, &support.context, 2, &allocator));
+  // Executor (1 handle is genoeg voor alleen de timer)
+  RCCHECK(rclc_executor_init(&executor, &support.context, 1, &allocator));
   RCCHECK(rclc_executor_add_timer(&executor, &timer));
-  
-  // Voeg subscriber toe aan executor
-  RCCHECK(rclc_executor_add_subscription(&executor, &subscriber, &msg_sub, &subscription_callback, ON_NEW_DATA));
-
-  msg_pub.data = 0;
 }
 
 void loop() {
-  // Checkt nu zowel de timer (verzenden) als inkomende data (ontvangen)
   RCCHECK(rclc_executor_spin_some(&executor, RCL_MS_TO_NS(100)));
   delay(10);
 }
