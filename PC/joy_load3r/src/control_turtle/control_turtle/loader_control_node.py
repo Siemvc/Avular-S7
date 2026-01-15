@@ -24,11 +24,11 @@ class Control(Node):
         self.prev_d_pad_x = 0.0
         self.lights_on = False
         self.prev_standby = 0.0
-        self.standby = False
+        self.standby = True
         self.prev_square = 0
         self.prev_triangle = 0
         self.current_mode = "Normal"
-
+        self.standby_pub.publish(Bool(data = self.standby))
     def listener_callback(self, msg):
         
 
