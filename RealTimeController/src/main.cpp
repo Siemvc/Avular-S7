@@ -101,10 +101,16 @@ void handle_status_frame(const CAN_message_t &msg) {
   // Status Frame 1 contains motor velocity as IEEE float
   uint32_t msg_id = msg.id & 0x1FFFFFFF;
   
-  if (msg_id == (STATUS_1_ID + DEVICE_ID)) {
+  if (msg_id == (STATUS_1_ID + DEVICE_ID_LEFT)) {
     float actual_rpm;
     memcpy(&actual_rpm, &msg.buf[0], 4);
-    sprintf(debug_buffer, "MOTOR | Actual RPM: %.1f", actual_rpm);
+    sprintf(debug_buffer, "LEFT MOTOR | Actual RPM: %.1f", actual_rpm);
+    publish_debug(debug_buffer);
+  } 
+  else if (msg_id == (STATUS_1_ID + DEVICE_ID_RIGHT)) {
+    float actual_rpm;
+    memcpy(&actual_rpm, &msg.buf[0], 4);
+    sprintf(debug_buffer, "RIGHT MOTOR | Actual RPM: %.1f", actual_rpm);
     publish_debug(debug_buffer);
   }
 }
