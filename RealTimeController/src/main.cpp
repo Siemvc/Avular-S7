@@ -2,7 +2,7 @@
 #include <Arduino.h>
 #include <FlexCAN_T4.h>
 
-FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> Can1;
+FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_16> Can1;
 
 // ---------------- CONFIG ----------------
 const uint32_t CAN_BAUD = 1000000;
@@ -26,6 +26,9 @@ float motorSetpointRPM[MOTOR_COUNT] = {0};
 float actualVelocityRPM[MOTOR_COUNT] = {0};
 
 uint32_t lastHeartbeat = 0;
+
+// Forward declaration for lambda in initCAN
+void handleStatusFrame(const CAN_message_t &msg);
 
 // ---------------- CAN INIT ----------------
 void initCAN() {
@@ -106,7 +109,7 @@ void handleStatusFrame(const CAN_message_t &msg) {
     return;
 
   for (uint8_t i = 0; i < MOTOR_COUNT; i++) {
-    if (msg.id == (Status_1 + MOTOR_IDS[i])) {
+    if ((uint32_t)msg.id == (Status_1 + MOTOR_IDS[i])) {
       memcpy(&actualVelocityRPM[i], msg.buf, 4);
 
       Serial.print("Motor ");
@@ -129,16 +132,6 @@ void setup() {
 }
 
 // ---------------- LOOP ----------------
-
-void loop() {
-
-  // Heartbeat every 20 ms
-  if (heartbeatTimer >= 20) {
-    heartbeatTimer = 0;
-    sendHeartbeat();
-  }
-
-  // Switch speed every 5 seconds
 void loop() {
   uint32_t now = millis();
 
@@ -155,3 +148,4 @@ void loop() {
   while (Can1.read(rx_msg)) {
     handleStatusFrame(rx_msg);
   }
+}
