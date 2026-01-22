@@ -29,6 +29,7 @@ class Control(Node):
         self.prev_triangle = 0
         self.current_mode = "Normal"
         self.standby_pub.publish(Bool(data = self.standby))
+
     def listener_callback(self, msg):
         
 
