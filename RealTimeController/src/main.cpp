@@ -15,7 +15,7 @@
 
 elapsedMillis debugTimer;
 
-// --- CONFIGURATIE ---
+// Pin Configuratie Actuators
 TiltingActuator tilt(28, 29, 27); 
 LiftingActuators lift(8, 7, 6, 5, 4, 3, 26, 25);
 
@@ -25,15 +25,15 @@ MotorDriver motorRearLeft(4);
 MotorDriver motorFrontRight(2);
 MotorDriver motorRearRight(1);
 
-// --- ROS Objects ---
+//ROS Objects 
 rcl_node_t node;
 rclc_support_t support;
 rcl_allocator_t allocator;
 rclc_executor_t executor;
-
+// Publishers & Subscribers
 rcl_publisher_t debug_pub;
 rcl_subscription_t sub_actuator; 
-rcl_subscription_t sub_buttons;     // <--- Button Subscriber
+rcl_subscription_t sub_buttons;
 rcl_subscription_t sub_drive_mode;  
 
 geometry_msgs__msg__Twist msg_twist;
