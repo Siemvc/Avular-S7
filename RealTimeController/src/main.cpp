@@ -7,6 +7,10 @@
 #include <rclc/executor.h>
 #include <std_msgs/msg/float32.h>
 
+// Macro for error checking
+#define RCCHECK(fn) { rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){while(1){Serial.println("RCCHECK failed"); delay(1000);}}}
+#define RCSOFTCHECK(fn) { rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){}}
+
 FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_16> Can1;
 
 // ---------------- CONFIG ----------------
@@ -42,16 +46,20 @@ rcl_node_t node;
 
 // Forward declarations
 void handleStatusFrame(const CAN_message_t &msg);
-void motor_callback(const void * msgin, void * motorIndex);
+void motor_callback(const void * msgin);
+void sendSmartVelocity(uint8_t motorID, float rpm);
+void sendHeartbeat();
+void initCAN();
 
 // Callback function for motor subscriptions
-void motor_callback(const void * msgin, void * motorIndex) {
+void motor_callback(const void * msgin) {
   const std_msgs__msg__Float32 * msg = (const std_msgs__msg__Float32 *)msgin;
-  int index = (int)motorIndex;
   
-  if (index >= 0 && index < MOTOR_COUNT) {
-    motorSetpointRPM[index] = msg->data;
-    sendSmartVelocity(MOTOR_IDS[index], msg->data);
+  // We'll handle motor identification in the loop based on message matching
+  // For now, broadcast to all motors (this will be refined)
+  for (int i = 0; i < MOTOR_COUNT; i++) {
+    motorSetpointRPM[i] = msg->data;
+    sendSmartVelocity(MOTOR_IDS[i], msg->data);
   }
 }
 
@@ -139,7 +147,7 @@ void setup() {
       &motor_subscribers[i],
       &motor_msg[i],
       &motor_callback,
-      (void *)(intptr_t)i));
+      ON_NEW_DATA));
   }
 }
 
