@@ -14,16 +14,25 @@
 #include "LiftingActuators.h" 
 
 elapsedMillis debugTimer;
+elapsedMillis heartbeatTimer; // Timer voor de globale CAN heartbeat
 
 // Pin Configuratie Actuators
 TiltingActuator tilt(28, 29, 27); 
 LiftingActuators lift(8, 7, 6, 5, 4, 3, 26, 25);
+
+// Driving Configuration
+#define MAX_RPM 4000.0f  // Max snelheid motoren
+#define DEADZONE 0.05f   // Joystick deadzone
 
 FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_16> Can3;
 MotorDriver motorFrontLeft(3);
 MotorDriver motorRearLeft(4);
 MotorDriver motorFrontRight(2);
 MotorDriver motorRearRight(1);
+
+// Configuratie draairichting (Pas aan als ze verkeerd om draaien)
+bool INVERT_LEFT = false;
+bool INVERT_RIGHT = true;
 
 //ROS Objects 
 rcl_node_t node;
@@ -34,12 +43,12 @@ rclc_executor_t executor;
 rcl_publisher_t debug_pub;
 rcl_subscription_t sub_actuator; 
 rcl_subscription_t sub_buttons;
-rcl_subscription_t sub_drive_mode;  
+
 // Messages
 geometry_msgs__msg__Twist msg_twist;
 std_msgs__msg__Int32 msg_buttons;
 std_msgs__msg__String msg_debug;
-char debug_buffer[200];
+char debug_buffer[255];
 
 //Debug publish function
 void publish_debug(const char* text) {
@@ -49,13 +58,53 @@ void publish_debug(const char* text) {
   rcl_publish(&debug_pub, &msg_debug, NULL);
 }
 
+void sendGlobalHeartbeat() {
+    CAN_message_t msg;
+    msg.id = 0x2052C80; // Heartbeat Base ID uit testcode
+    msg.flags.extended = 1;
+    msg.len = 8;
+    memset(msg.buf, 0xFF, 8); // Vullen met FF
+    Can3.write(msg);
+}
+
 // CALLBACK: Joystick
 void callback_actuator(const void * msgin) {
   const geometry_msgs__msg__Twist * msg = (const geometry_msgs__msg__Twist *)msgin;
   
-   //____________Driving____________
-  // 1. RIJDEN (Linker Stick) - Tank Drive
-  // Hier moet de code voor driving komen
+// ____________Driving (Tank/Arcade Drive)____________
+  // Linear Y = Gas (Vooruit/Achteruit)
+  // Angular Z = Stuur (Links/Rechts)
+   
+  float throttle = msg->linear.y;
+  float steering = msg->angular.z;
+
+  // Deadzone filter
+  if (abs(throttle) < DEADZONE) throttle = 0;
+  if (abs(steering) < DEADZONE) steering = 0;
+
+  // Mixen (Arcade Drive Formule)
+  // Links = Gas - Stuur | Rechts = Gas + Stuur
+  float leftOut = throttle - steering;
+  float rightOut = throttle + steering;
+
+  // Begrenzen op -1.0 tot 1.0
+  leftOut = constrain(leftOut, -1.0, 1.0);
+  rightOut = constrain(rightOut, -1.0, 1.0);
+
+  // Omrekenen naar RPM
+  float rpmLeft = leftOut * MAX_RPM;
+  float rpmRight = rightOut * MAX_RPM;
+
+  // Inverteren indien nodig
+  if (INVERT_LEFT) rpmLeft *= -1;
+  if (INVERT_RIGHT) rpmRight *= -1;
+
+  // Stuur naar motoren
+  motorFrontLeft.setSpeed(rpmLeft);
+  motorRearLeft.setSpeed(rpmLeft);
+  motorFrontRight.setSpeed(rpmRight);
+  motorRearRight.setSpeed(rpmRight);
+
 
   //____________Actuators____________
   //Only switch to Manual Mode if you MOVE the stick.
@@ -101,13 +150,17 @@ void callback_buttons(const void * msgin) {
 
 
 void canSniff(const CAN_message_t &msg) {
-    // Hier kun je evt. motor status verwerken
+    motorFrontLeft.parseCanMessage(msg);
+    motorRearLeft.parseCanMessage(msg);
+    motorFrontRight.parseCanMessage(msg);
+    motorRearRight.parseCanMessage(msg);
 }
 
 void setup() {
   analogReadResolution(10); 
 
-  Can3.begin(); Can3.setBaudRate(1000000); 
+  Can3.begin(); 
+  Can3.setBaudRate(1000000); 
   Can3.onReceive(canSniff);
 
   tilt.begin();
@@ -144,6 +197,12 @@ void loop() {
   motorRearLeft.update(Can3);
   motorFrontRight.update(Can3);
   motorRearRight.update(Can3);
+
+
+  if (heartbeatTimer > 20) {
+      heartbeatTimer = 0;
+      sendGlobalHeartbeat();
+  }
   
   Can3.events();
 
@@ -155,9 +214,14 @@ void loop() {
     debugTimer = 0;
     
     //Simpele debug string
-    sprintf(debug_buffer, "Lift:position %d percentage, PotValue %d | Tilting: Position %d mm, PotValue %d", 
-            lift.getCurrentPosition(), lift.getTargetPositionRaw(),
-            tilt.getCurrentPosition(), tilt.getTargetPositionRaw());
+    sprintf(debug_buffer, "LIFT:%d TILT:%d | L: T%.0f/A%.0f | R: T%.0f/A%.0f", 
+            lift.getCurrentPosition(), 
+            tilt.getCurrentPosition(),
+            motorFrontLeft.getTargetRPM(),
+            motorFrontLeft.getActualRPM(),
+            motorFrontRight.getTargetRPM(),
+            motorFrontRight.getActualRPM()
+            );
     publish_debug(debug_buffer);
   }
 }

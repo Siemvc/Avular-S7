@@ -6,27 +6,22 @@
 
 class MotorDriver {
 public:
-    // Constructor
-    MotorDriver(uint32_t deviceId);
+    MotorDriver(uint8_t deviceId);
 
-    // Update logica (hartslag sturen, etc)
-    // We geven nu de CAN bus mee als parameter!
     void update(FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_16>& bus);
-    
     void setSpeed(float rpm);
-    void stop();
-    float getActualRPM();
     
-    // Deze roepen we aan vanuit main.cpp als er een bericht binnenkomt
-    void processCanMessage(const CAN_message_t &msg);
+    float getTargetRPM(); // Wat we willen
+    float getActualRPM(); // Wat we meten via CAN
+
+    // Nieuw: Verwerk inkomende berichten
+    void parseCanMessage(const CAN_message_t &msg);
 
 private:
-    uint32_t _deviceId;
-    float _currentRpmTarget;
-    float _actualRpm;
-    
-    elapsedMillis _heartbeatTimer;
-    elapsedMillis _commandTimer;
+    uint8_t _deviceId;
+    float _targetRPM;
+    float _actualRPM; // Nieuw
+    elapsedMillis _sendTimer;
 };
 
 #endif
