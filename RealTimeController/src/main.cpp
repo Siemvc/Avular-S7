@@ -8,7 +8,7 @@ FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_16> Can1;
 const uint32_t CAN_BAUD = 1000000;
 
 // Motor configuratie (hier bepaal je het aantal motoren)
-const uint8_t MOTOR_IDS[] = {1, 2};
+const uint8_t MOTOR_IDS[] = {4};
 const uint8_t MOTOR_COUNT = sizeof(MOTOR_IDS) / sizeof(MOTOR_IDS[0]);
 
 // Extended CAN IDs
@@ -20,12 +20,14 @@ enum ControlMode {
 
 // Heartbeat interval
 const uint32_t HEARTBEAT_INTERVAL_MS = 20;
+const uint32_t VELOCITY_SEND_INTERVAL_MS = 50;  // Throttle velocity commands
 
 // ---------------- VARIABLES ----------------
 float motorSetpointRPM[MOTOR_COUNT] = {0};
 float actualVelocityRPM[MOTOR_COUNT] = {0};
 
 uint32_t lastHeartbeat = 0;
+uint32_t lastVelocitySend = 0;
 
 // Forward declaration for lambda in initCAN
 void handleStatusFrame(const CAN_message_t &msg);
@@ -87,6 +89,16 @@ void sendHeartbeat() {
   msg.len = 8;
   memset(msg.buf, 0xFF, 8);
   Can1.write(msg);
+  
+  // Debug output
+  Serial.print("[CAN TX] Heartbeat - ID: 0x");
+  Serial.print(msg.id, HEX);
+  Serial.print(" Data: ");
+  for (uint8_t i = 0; i < msg.len; i++) {
+    Serial.print(msg.buf[i], HEX);
+    Serial.print(" ");
+  }
+  Serial.println();
 }
 
 void sendSmartVelocityToAll() {
@@ -100,6 +112,20 @@ void sendSmartVelocityToAll() {
     memset(msg.buf + 4, 0, 4);
 
     Can1.write(msg);
+    
+    // Debug output
+    Serial.print("[CAN TX] SmartVelocity - Motor ");
+    Serial.print(MOTOR_IDS[i]);
+    Serial.print(" ID: 0x");
+    Serial.print(msg.id, HEX);
+    Serial.print(" RPM Setpoint: ");
+    Serial.print(motorSetpointRPM[i]);
+    Serial.print(" Data: ");
+    for (uint8_t j = 0; j < msg.len; j++) {
+      Serial.print(msg.buf[j], HEX);
+      Serial.print(" ");
+    }
+    Serial.println();
   }
 }
 
@@ -133,7 +159,7 @@ void setup() {
 
 // ---------------- LOOP ----------------
 void loop() {
-  uint32_t now = millis();
+  uint32_t now = millis(); //don't remove this
 
   handleSerialInput();
 
@@ -142,7 +168,10 @@ void loop() {
     sendHeartbeat();
   }
 
-  sendSmartVelocityToAll();
+  if (now - lastVelocitySend >= VELOCITY_SEND_INTERVAL_MS) {
+    lastVelocitySend = now;
+    sendSmartVelocityToAll();
+  }
 
   CAN_message_t rx_msg;
   while (Can1.read(rx_msg)) {
