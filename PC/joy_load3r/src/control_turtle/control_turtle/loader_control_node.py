@@ -9,6 +9,7 @@ from std_msgs.msg import Bool, Int32
 class Control(Node):
     def __init__(self, name):
         super().__init__(name)
+        # Publishers
         self.actuator_pub = self.create_publisher(Twist, "/actuator_pub", 10)  
         self.lights_pub = self.create_publisher(Bool, "/lights_toggle", 10)
         self.standby_pub = self.create_publisher(Bool, "/standby", 10)     
@@ -31,16 +32,16 @@ class Control(Node):
         self.standby_pub.publish(Bool(data=self.standby_active))
 
     def listener_callback(self, msg):
-        # --- JOYSTICK AXES ---
-        # Driving
-        L_horizontal = msg.axes[0]  # Turning
-        L_vertical = msg.axes[1]    # Forward/Backward
+    #JOYSTICK AXES AND BUTTONS MAPPING
+        # Driving (Left Stick)
+        L_horizontal = msg.axes[0]  #Turning
+        L_vertical = msg.axes[1]    #Forward/Backward
         
-        # Actuators
-        R_horizontal = msg.axes[3]  # Tilt
-        R_vertical = msg.axes[4]    # Lift
+        # Actuators (Right Stick)
+        R_horizontal = msg.axes[3]  #Tilt
+        R_vertical = msg.axes[4]    #Lift
 
-        # Speed scaling
+        # Speed scaling driving
         Boost_btn = msg.buttons[4]      # L1
         precision_btn = msg.buttons[5]  # R1
         
@@ -50,14 +51,14 @@ class Control(Node):
 
         # Making twist message
         t = Twist()
-        t.linear.y = L_vertical * scale    # Gas (Komt overeen met Teensy)
-        t.angular.z = L_horizontal * scale # Stuur
-        t.angular.x = R_vertical           # Lift Manual (Teensy verwacht Angular X)
-        t.angular.y = R_horizontal         # Tilt Manual (Teensy verwacht Angular Y)
+        t.linear.y = L_vertical * scale    # Forward/Backward
+        t.angular.z = L_horizontal * scale # Turning
+        t.angular.x = R_vertical           # Lift Manual 
+        t.angular.y = R_horizontal         # Tilt Manual 
 
         self.actuator_pub.publish(t) 
 
-        # --- BUTTONS (PRESETS) ---
+        #BUTTONS FOR PRESETS
         cross = msg.buttons[0]
         circle = msg.buttons[1]
         triangle = msg.buttons[2]
@@ -75,7 +76,7 @@ class Control(Node):
             self.get_logger().info("Preset: DUMP")
             self.buttons_pub.publish(Int32(data=2))
         
-        # --- OTHER BUTTONS ---
+        #OTHER BUTTONS
         d_pad_x = msg.axes[6]
         if d_pad_x == -1 and self.prev_d_pad_x == 0.0:
             self.lights_on = not self.lights_on
@@ -83,13 +84,13 @@ class Control(Node):
 
         standby_btn = msg.buttons[10] # PS Button
         
-        # FIX 2: Variabele namen consistent gemaakt (standby_active)
+        #Standby toggle logic
         if standby_btn == 1 and self.prev_standby == 0:
             self.standby_active = not self.standby_active
             self.standby_pub.publish(Bool(data=self.standby_active))
             self.get_logger().info(f"Standby: {self.standby_active}")
 
-        # Update previous states
+        #Update previous states
         self.prev_cross = cross
         self.prev_circle = circle
         self.prev_triangle = triangle

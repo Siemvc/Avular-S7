@@ -14,7 +14,7 @@ private:
     int _currentPos;
     int _speed;
     
-    // NIEUW: Houdt bij of we handmatig sturen of automatisch
+    //Keep track of manual or auto mode
     bool _manualMode; 
 
     void setMotorSpeed(int speed);
@@ -23,16 +23,16 @@ public:
     TiltingActuator(int pinIN1, int pinIN2, int pinPot);
     void begin();
     
-    // Update moet altijd draaien (voor PID én safety limits)
+    // Regular update call for position control and min max distance checking
     void update(); 
     
-    // AUTO: Gaat naar positie met PID
+    //Auto: Go to position with P-controller
     void setTargetPosition(int percentage); 
     
-    // MANUAL: Directe snelheid (-1.0 tot 1.0)
+    // Manual: Direct speed (-1.0 to 1.0)
     void setManualSpeed(float input); 
 
-    // Getters voor debug
+    // Getters for debugging
     int getCurrentPosition();
     int getTargetPositionRaw();
     int getLastSpeed();

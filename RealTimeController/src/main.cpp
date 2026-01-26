@@ -35,13 +35,13 @@ rcl_publisher_t debug_pub;
 rcl_subscription_t sub_actuator; 
 rcl_subscription_t sub_buttons;
 rcl_subscription_t sub_drive_mode;  
-
+// Messages
 geometry_msgs__msg__Twist msg_twist;
-std_msgs__msg__Int32 msg_buttons;   // <--- Button Message
+std_msgs__msg__Int32 msg_buttons;
 std_msgs__msg__String msg_debug;
 char debug_buffer[200];
 
-// --- HULPFUNCTIE ---
+//Debug publish function
 void publish_debug(const char* text) {
   msg_debug.data.data = (char*)text;
   msg_debug.data.size = strlen(text);
@@ -49,56 +49,53 @@ void publish_debug(const char* text) {
   rcl_publish(&debug_pub, &msg_debug, NULL);
 }
 
-// --- CALLBACK: Joystick (Handmatig) ---
+// CALLBACK: Joystick
 void callback_actuator(const void * msgin) {
   const geometry_msgs__msg__Twist * msg = (const geometry_msgs__msg__Twist *)msgin;
   
+   //____________Driving____________
   // 1. RIJDEN (Linker Stick) - Tank Drive
-  // ... (Hier jouw bestaande motor-code laten staan) ...
+  // Hier moet de code voor driving komen
 
-  // 2. ACTUATORS (Rechter Stick)
-  // Angular X = Lift, Angular Y = Tilt
-  
-  // CRUCIAAL: Alleen omschakelen naar Manual Mode als je de stick BEWEEGT.
-  // Als de stick in het midden staat (0.0), doen we niks, 
-  // zodat de PID (Preset) zijn werk kan afmaken.
-  
+  //____________Actuators____________
+  //Only switch to Manual Mode if you MOVE the stick.
+  //Lifting Actuator
   if (abs(msg->angular.x) > 0.1) {
       lift.setManualSpeed(msg->angular.x);
   } else if (lift.getLastSpeed() != 0 && lift.getTargetPositionRaw() == -1) {
-      // Als we in manual mode waren (geen target), en we laten stick los -> STOP
+      //If we where in manual mode (no target), and we release the stick -> STOP
       lift.setManualSpeed(0);
   }
-
+  //Tilting Actuator
   if (abs(msg->angular.y) > 0.1) {
       tilt.setManualSpeed(msg->angular.y);
   } else if (tilt.getLastSpeed() != 0 && tilt.getTargetPositionRaw() == -1) {
-      // Als we in manual mode waren (geen target), en we laten stick los -> STOP
+      //If we where in manual mode (no target), and we release the stick -> STOP
       tilt.setManualSpeed(0);
   }
 }
 
-// --- CALLBACK: Knoppen (Presets) ---
+//____________CALLBACK: Button Presets____________
 void callback_buttons(const void * msgin) {
   const std_msgs__msg__Int32 * msg = (const std_msgs__msg__Int32 *)msgin;
   
-  // 0 = Kruisje (Laag/Scrape)
+  // 0 = Cross [Enter positon name here]
   if (msg->data == 0) { 
-      lift.setTargetPosition(15); 
-      tilt.setTargetPosition(5);  
-      publish_debug("Preset: LOW");
+      lift.setTargetPosition(15); //Distance in mm
+      tilt.setTargetPosition(5);  //Distance in mm
+      publish_debug("Preset: MODE NAME");
   }
-  // 1 = Rondje (Rijstand)
+  // 1 = Round [Enter positon name here]
   else if (msg->data == 1) { 
-      lift.setTargetPosition(30); 
-      tilt.setTargetPosition(80); 
-      publish_debug("Preset: DRIVE");
+      lift.setTargetPosition(30); //Distance in mm
+      tilt.setTargetPosition(80); //Distance in mm
+      publish_debug("Preset: MODE NAME");
   }
   // 2 = Driehoekje (Dump Hoog)
   else if (msg->data == 2) { 
-      lift.setTargetPosition(90); 
-      tilt.setTargetPosition(100); 
-      publish_debug("Preset: DUMP");
+      lift.setTargetPosition(90);  //Distance in mm
+      tilt.setTargetPosition(100); //Distance in mm
+      publish_debug("Preset: MODE NAME");
   }
 }
 
@@ -123,22 +120,22 @@ void setup() {
   rclc_support_init(&support, 0, NULL, &allocator);
   rclc_node_init_default(&node, "teensy_loader_node", "", &support);
 
-  // Publishers
+  //Publishers
   rclc_publisher_init_default(&debug_pub, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String), "/teensy_debug");
   
-  // Subscribers
+  //Subscribers
   rclc_subscription_init_default(&sub_actuator, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist), "/actuator_pub");
   
-  // NIEUW: Buttons Subscriber
+  //Buttons Subscriber
   rclc_subscription_init_default(&sub_buttons, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32), "/actuator_buttons");
-
-  rclc_executor_init(&executor, &support.context, 3, &allocator); // Aantal handles verhoogd naar 3
+  //Messages
+  rclc_executor_init(&executor, &support.context, 3, &allocator); 
   rclc_executor_add_subscription(&executor, &sub_actuator, &msg_twist, &callback_actuator, ON_NEW_DATA);
   rclc_executor_add_subscription(&executor, &sub_buttons, &msg_buttons, &callback_buttons, ON_NEW_DATA);
 }
 
 void loop() {
-  // Actuator updates (PID en Soft Limits)
+  // Actuator updates
   tilt.update();
   lift.update();
   
@@ -153,12 +150,12 @@ void loop() {
   // ROS
   rclc_executor_spin_some(&executor, RCL_MS_TO_NS(10));
 
-  // Debug (Elke 200ms)
-  if (debugTimer > 200) {
+  // Debug
+  if (debugTimer > 100) {
     debugTimer = 0;
     
-    // Simpele debug string
-    sprintf(debug_buffer, "L:%d%%/%d T:%d%%/%d", 
+    //Simpele debug string
+    sprintf(debug_buffer, "Lift:position %d percentage, PotValue %d | Tilting: Position %d mm, PotValue %d", 
             lift.getCurrentPosition(), lift.getTargetPositionRaw(),
             tilt.getCurrentPosition(), tilt.getTargetPositionRaw());
     publish_debug(debug_buffer);
