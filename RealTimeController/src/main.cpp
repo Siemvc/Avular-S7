@@ -8,7 +8,7 @@ FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_16> Can1;
 const uint32_t CAN_BAUD = 1000000;
 
 // Motor configuratie (hier bepaal je het aantal motoren)
-const uint8_t MOTOR_IDS[] = {4};
+const uint8_t MOTOR_IDS[] = {1, 2};
 const uint8_t MOTOR_COUNT = sizeof(MOTOR_IDS) / sizeof(MOTOR_IDS[0]);
 
 // Extended CAN IDs
@@ -152,7 +152,12 @@ void setup() {
   delay(500);
 
   Serial.println("Teensy 4.1 Multi-Motor Serial Velocity Control");
-  Serial.println("Voer snelheden in gescheiden door spaties");
+  Serial.println("Motor spinning at 500 RPM");
+
+  // Set motor to spin at 500 RPM
+  for (uint8_t i = 0; i < MOTOR_COUNT; i++) {
+    motorSetpointRPM[i] = 4000.0;
+  }
 
   initCAN();
 }
