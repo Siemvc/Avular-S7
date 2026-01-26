@@ -1,20 +1,20 @@
 #include <FastLED.h>
 
 const int ledPin = 6;       
-const int numLeds = 60;       // Je hebt 60 LEDs
+const int numLeds = 60;      
 const int ledsPerHoek = 2;
-int brightness = 255;       // Helderheid (0-255)
+int brightness = 255;       
 
 #define ledType    WS2812
 #define colorOrder GRB
 
 CRGB leds[numLeds];
 
-//Gedifineerde secties van rgb strip
-const int hoekLV = 0;
-const int hoekRV = 1;
-const int hoekRA = 2;
-const int hoekLA = 3;
+//Sections of RGB strip
+const int Corner_Left_front = 0;
+const int Corner_RIGHT_front = 1;
+const int Corner_RIGHT_Back = 2;
+const int Corner_Left_Back = 3;
 
 enum avuloaderState {
   BOOTING,
@@ -26,10 +26,10 @@ enum avuloaderState {
   OBSTACLE
 };
 
-avuloaderState currentState = BOOTING;
+//avuloaderState currentState = BOOTING;
 
 void setup() {
-  delay(2000); // Veiligheidspauze bij opstarten
+  delay(2000); // Safety delay for startup
 
   // FastLED setup
   FastLED.addLeds<ledType, ledPin, colorOrder>(leds, numLeds);
@@ -42,16 +42,16 @@ void setup() {
 void HandleLeds() {
   switch (currentState) {
     case IDLE:
-      EffectBreathing(CRGB::Cyan); // Rustig ademen
+      EffectBreathing(CRGB::Cyan); // Breathing effect in Cyan
       break;
     case DRIVING:
-      SetHeadlightsTaillights();   // Wit voor, Rood achter
+      SetHeadlightsTaillights();   // White front, Red back
       break;
     case TURNING_LEFT:
-      EffectBlinker(hoekLV, hoekLA); // Knipperlicht links
+      EffectBlinker(Corner_Left_front, Corner_Left_Back); // Knipperlicht links
       break;
     case TURNING_RIGHT:
-      EffectBlinker(hoekRV, hoekRA); // Knipperlicht rechts
+      EffectBlinker(Corner_RIGHT_front, Corner_RIGHT_Back); // Knipperlicht rechts
       break;
     case OBSTACLE:
       EffectPolice(); // Politie stroboscoop
@@ -69,16 +69,9 @@ void SetCorner(int cornerIndex, CRGB color) {
   }
 }
 
-void SetHeadlightsTaillights() {
-  SetCorner(hoekLV, CRGB::White);
-  SetCorner(hoekRV, CRGB::White);
-  SetCorner(hoekLA, CRGB::Red);
-  SetCorner(hoekRA, CRGB::Red);
-}
-
 void EffectBlinker(int cornerFront, int cornerBack) {
-  // Knipperen op 2 Hz (elke 500ms)
-  CRGB color = (millis() / 350) % 2 == 0 ? CRGB::Orange : CRGB::Black;
+
+  CRGB color = (millis() / 350) % 2 == 0 ? CRGB::Orange : CRGB::Black;   // blinking at 2Hz
   
   // Zet de andere hoeken uit of op 'dim'
   fill_solid(leds, numLeds, CRGB::Black); 
@@ -88,12 +81,8 @@ void EffectBlinker(int cornerFront, int cornerBack) {
 }
 
 void EffectBreathing(CRGB color) {
-  // Gebruik een sinusgolf voor soepel ademen
-  float breath = (exp(sin(millis()/2000.0*PI)) - 0.36787944)*108.0;
-  
+  float breath = (exp(sin(millis()/2000.0*PI)) - 0.36787944)*108.0; // use sin for smooth breathingx
   for(int i=0; i < numLeds; i++) {
-    // We gebruiken 'i' niet, want alles ademt tegelijk
-    // Je kunt hier controleren of 'i' binnen de hoek-leds valt
     if (i < 4 * ledsPerHoek) {
       leds[i] = color;
       leds[i].fadeToBlackBy(255 - breath);
@@ -103,43 +92,12 @@ void EffectBreathing(CRGB color) {
   }
 }
 
-void EffectPolice() {
-  // Stroboscoop effect: Blauw/Rood wisselen heel snel
-  int state = (millis() / 100) % 2;
-  if(state == 0) {
-    SetCorner(hoekLV, CRGB::Blue);
-    SetCorner(hoekRA, CRGB::Blue);
-    SetCorner(hoekRV, CRGB::Red);
-    SetCorner(hoekLA, CRGB::Red);
-  } else {
-    SetCorner(hoekLV, CRGB::Red);
-    SetCorner(hoekRA, CRGB::Red);
-    SetCorner(hoekRV, CRGB::Blue);
-    SetCorner(hoekLA, CRGB::Blue);
-  }
-}
-
 void EffectFlashRed() {
   CRGB color = (millis() / 100) % 2 == 0 ? CRGB::Red : CRGB::Black;
-  fill_solid(leds, 12, color); // Zet alleen de eerste 12 leds aan
+  fill_solid(leds, 12, color); // Turn on first 12 LEDs
 }
 
-void EffectBootup() {
-  // Knight rider style "vullen"
-  for(int i=0; i<4; i++) {
-    SetCorner(i, CRGB::Green);
-    FastLED.show();
-    delay(500);
-    SetCorner(i, CRGB::Black);
-  }
-  fill_solid(leds, 12, CRGB::Green);
-  FastLED.show();
-  delay(500);
-  fill_solid(leds, 12, CRGB::Black);
-}
-
-// Simpele demo switcher
-void NextDemoState() {
+void NextDemoState() { //demo test for functionality
   switch (currentState) {
     case IDLE: currentState = DRIVING; break;
     case DRIVING: currentState = TURNING_LEFT; break;
@@ -151,11 +109,46 @@ void NextDemoState() {
 }
 
 void loop() {
-  HandleLeds(); // Update de LEDs op basis van de huidige status
+  HandleLeds(); // Update LEDs to current state
   FastLED.show();
   
-  // Simulatie demo (verwijder dit in je echte rover code)
+  // Simulate demo cycle every 5 seconds
   EVERY_N_SECONDS(5) {
     NextDemoState();
   }
 }
+// void SetHeadlightsTaillights() {
+//   SetCorner(Corner_Left_front, CRGB::White);
+//   SetCorner(Corner_RIGHT_front, CRGB::White);
+//   SetCorner(Corner_Left_Back, CRGB::Red);
+//   SetCorner(Corner_RIGHT_Back, CRGB::Red);
+// }
+
+// void EffectBootup() {
+//   for(int i=0; i<4; i++) {
+//     SetCorner(i, CRGB::Green);
+//     FastLED.show();
+//     delay(500);
+//     SetCorner(i, CRGB::Black);
+//   }
+//   fill_solid(leds, 12, CRGB::Green);
+//   FastLED.show();
+//   delay(500);
+//   fill_solid(leds, 12, CRGB::Black);
+// }
+
+// void EffectPolice() {
+//   // Stroboscoop effect: Blue/Red changing
+//   int state = (millis() / 100) % 2;
+//   if(state == 0) {
+//     SetCorner(Corner_Left_front, CRGB::Blue);
+//     SetCorner(Corner_RIGHT_Back, CRGB::Blue);
+//     SetCorner(Corner_RIGHT_front, CRGB::Red);
+//     SetCorner(Corner_Left_Back, CRGB::Red);
+//   } else {
+//     SetCorner(Corner_Left_front, CRGB::Red);
+//     SetCorner(Corner_RIGHT_Back, CRGB::Red);
+//     SetCorner(Corner_RIGHT_front, CRGB::Blue);
+//     SetCorner(Corner_Left_Back, CRGB::Blue);
+//   }
+// }
