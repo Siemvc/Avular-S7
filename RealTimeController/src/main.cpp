@@ -12,6 +12,7 @@
 #include "MotorDriver.h"      
 #include "TiltingActuator.h"  
 #include "LiftingActuators.h" 
+#include "LedManager.h"
 
 elapsedMillis debugTimer;
 elapsedMillis heartBeatTimer; // Timer voor de globale CAN heartbeat
@@ -19,6 +20,7 @@ elapsedMillis heartBeatTimer; // Timer voor de globale CAN heartbeat
 // Pin Configuratie Actuators
 TiltingActuator tilt(28, 29, 27); 
 LiftingActuators lift(8, 7, 6, 5, 4, 3, 26, 25);
+LedManager leds;
 
 // Driving Configuration
 const float maxRPM = 4000.0f;  // Max RPM of the motors
@@ -158,6 +160,8 @@ void CanSniff(const CAN_message_t &msg) {
 }
 
 void setup() {
+  leds.begin(23, 8); //led_PIN , Num_leds
+
   analogReadResolution(10); 
 
   can3.begin(); 
@@ -171,6 +175,15 @@ void setup() {
   delay(2000);
 
   allocator = rcl_get_default_allocator();
+
+  if (rclc_support_init(&support, 0, NULL, &allocator) == RCL_RET_OK) {
+      // Success! If the 5 seconds are over, it goes to Blue.
+      leds.setState(Standby); 
+  } else {
+      // Failed! Show the fast yellow blinking error.
+      leds.setState(Linux_boot_ERR); 
+  }
+  
   rclc_support_init(&support, 0, NULL, &allocator);
   rclc_node_init_default(&node, "teensy_loader_node", "", &support);
 
@@ -189,6 +202,7 @@ void setup() {
 }
 
 void loop() {
+  leds.update();
   // Actuator updates
   tilt.update();
   lift.update();
