@@ -18,11 +18,13 @@ rcl_node_t node;
 rcl_publisher_t bms1_voltage_pub;
 rcl_publisher_t bms1_current_pub;
 rcl_publisher_t bms1_soc_pub;
+rcl_publisher_t bms1_temp_pub;
 
 // BMS #2 Publishers
 rcl_publisher_t bms2_voltage_pub;
 rcl_publisher_t bms2_current_pub;
 rcl_publisher_t bms2_soc_pub;
+rcl_publisher_t bms2_temp_pub;
 
 // Message
 std_msgs__msg__Float32 msg_float32;
@@ -34,13 +36,15 @@ const unsigned long PUBLISH_INTERVAL = 1000;  // 1000ms
 // Using CAN3 (pins 30 = TX, 31 = RX)
 FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_16> Can0;
 
+// --- TWO BMS addresses ---
 uint8_t BMS_ADDR_LIST[2] = { 0x01, 0x02 };
 
 static uint8_t PC_ADDR = 0x40;
 
 enum DalyDataId : uint8_t {
   DID_PACK_SOC_V_I  = 0x90,
-  DID_STATUS1       = 0x94
+  DID_STATUS1       = 0x94,
+  DID_TEMP_MOD      = 0x92
 };
 
 struct PackVI {
@@ -52,6 +56,12 @@ struct PackVI {
 
 struct Status1 {
   uint8_t nStrings=0, nTemps=0, chargerConnected=0, loadConnected=0, ioBits=0;
+};
+
+struct TempData {
+  float maxTemp_C = NAN;
+  float minTemp_C = NAN;
+  float avgTemp_C = NAN;
 };
 
 static inline uint16_t be16(const uint8_t* p){
@@ -126,6 +136,21 @@ bool readStatus1(uint8_t BMS_ADDR, Status1 &o){
   return true;
 }
 
+bool readTempData(uint8_t BMS_ADDR, TempData &o){
+  CAN_message_t rx;
+  if (!requestAndWait(DID_TEMP_MOD, BMS_ADDR, rx)) return false;
+
+  float maxTemp = (int8_t)rx.buf[0];
+  float minTemp = (int8_t)rx.buf[1];
+  float avgTemp = (int8_t)rx.buf[2];
+
+  o.maxTemp_C = maxTemp;
+  o.minTemp_C = minTemp;
+  o.avgTemp_C = avgTemp;
+
+  return true;
+}
+
 // ---- MAIN ----
 
 void setup(){
@@ -142,11 +167,13 @@ void setup(){
   rclc_publisher_init_default(&bms1_voltage_pub, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32), "/bms1/voltage");
   rclc_publisher_init_default(&bms1_current_pub, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32), "/bms1/current");
   rclc_publisher_init_default(&bms1_soc_pub, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32), "/bms1/soc");
+  rclc_publisher_init_default(&bms1_temp_pub, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32), "/bms1/temp");
 
   // BMS #2 Publishers
   rclc_publisher_init_default(&bms2_voltage_pub, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32), "/bms2/voltage");
   rclc_publisher_init_default(&bms2_current_pub, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32), "/bms2/current");
   rclc_publisher_init_default(&bms2_soc_pub, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32), "/bms2/soc");
+  rclc_publisher_init_default(&bms2_temp_pub, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32), "/bms2/temp");
 
   lastPublishTime = millis();
 }
@@ -166,7 +193,8 @@ void loop(){
       }
 
       PackVI p;
-      if (readPackVI(BMS, p)){
+      TempData t;
+      if (readPackVI(BMS, p) && readTempData(BMS, t)){
         if (i == 0){
           msg_float32.data = p.totalVoltage_V;
           rcl_publish(&bms1_voltage_pub, &msg_float32, NULL);
@@ -174,6 +202,8 @@ void loop(){
           rcl_publish(&bms1_current_pub, &msg_float32, NULL);
           msg_float32.data = p.soc_pct;
           rcl_publish(&bms1_soc_pub, &msg_float32, NULL);
+          msg_float32.data = t.avgTemp_C;
+          rcl_publish(&bms1_temp_pub, &msg_float32, NULL);
         } else {
           msg_float32.data = p.totalVoltage_V;
           rcl_publish(&bms2_voltage_pub, &msg_float32, NULL);
@@ -181,6 +211,8 @@ void loop(){
           rcl_publish(&bms2_current_pub, &msg_float32, NULL);
           msg_float32.data = p.soc_pct;
           rcl_publish(&bms2_soc_pub, &msg_float32, NULL);
+          msg_float32.data = t.avgTemp_C;
+          rcl_publish(&bms2_temp_pub, &msg_float32, NULL);
         }
       }
     }
