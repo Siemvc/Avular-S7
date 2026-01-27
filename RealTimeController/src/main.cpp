@@ -1,26 +1,46 @@
-
-/*
-  Teensy 4.1 + Waveshare SN65HVD230
-  Daly BMS CAN Reader - Supports TWO Daly BMS units
-*/
-
 #include <Arduino.h>
 #include <FlexCAN_T4.h>
 #include <vector>
 #include <cstring>
 
+// ROS
+#include <micro_ros_arduino.h>
+#include <rcl/rcl.h>
+#include <rclc/rclc.h>
+#include <std_msgs/msg/float32.h>
+
+// ROS objects
+rcl_allocator_t allocator;
+rclc_support_t support;
+rcl_node_t node;
+
+// BMS #1 Publishers
+rcl_publisher_t bms1_voltage_pub;
+rcl_publisher_t bms1_current_pub;
+rcl_publisher_t bms1_soc_pub;
+
+// BMS #2 Publishers
+rcl_publisher_t bms2_voltage_pub;
+rcl_publisher_t bms2_current_pub;
+rcl_publisher_t bms2_soc_pub;
+
+// Message
+std_msgs__msg__Float32 msg_float32;
+
+// Timing
+unsigned long lastPublishTime = 0;
+const unsigned long PUBLISH_INTERVAL = 1000;  // 1000ms
 
 // Using CAN3 (pins 30 = TX, 31 = RX)
 FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_16> Can0;
 
-// --- TWO BMS addresses ---
 uint8_t BMS_ADDR_LIST[2] = { 0x01, 0x02 };
 
 static uint8_t PC_ADDR = 0x40;
 
 enum DalyDataId : uint8_t {
   DID_PACK_SOC_V_I  = 0x90,
-  DID_STATUS1        = 0x94
+  DID_STATUS1       = 0x94
 };
 
 struct PackVI {
@@ -40,11 +60,6 @@ static inline uint16_t be16(const uint8_t* p){
 
 static inline uint32_t makeCanId(uint8_t DID, uint8_t DST, uint8_t SRC){
   return ((uint32_t)0x18 << 24) | ((uint32_t)DID << 16) | ((uint32_t)DST << 8) | SRC;
-}
-
-static void printFloatOrDash(float v, uint8_t digits = 1){
-  if (isnan(v)) Serial.print("—");
-  else Serial.print(v, digits);
 }
 
 bool canInit(){
@@ -80,8 +95,6 @@ bool requestAndWait(uint8_t DID, uint8_t BMS_ADDR, CAN_message_t &rx){
   return rxResponse(DID, BMS_ADDR, rx);
 }
 
-bool plausiblePackV(float v){ return (v > 5 && v < 100); }
-
 // ----- Parsing -----
 
 bool readPackVI(uint8_t BMS_ADDR, PackVI &o){
@@ -94,7 +107,7 @@ bool readPackVI(uint8_t BMS_ADDR, PackVI &o){
   float s_raw = be16(&rx.buf[6]) * 0.1f;
 
   o.cumulativeVoltage_V = v_cum;
-  o.totalVoltage_V = plausiblePackV(v_gat) ? v_gat : v_cum;
+  o.totalVoltage_V = v_gat;
   o.current_A = i_raw;
   o.soc_pct = s_raw;
 
@@ -116,44 +129,60 @@ bool readStatus1(uint8_t BMS_ADDR, Status1 &o){
 // ---- MAIN ----
 
 void setup(){
-  Serial.begin(115200);
-  delay(700);
-
-  Serial.println("\nDaly BMS (Dual-BMS) CAN Reader - Teensy 4.1 (CAN3)");
-  Serial.printf("Baud: 250k\n");
-
   if (!canInit()){
-    Serial.println("CAN init FAILED");
     while(1);
   }
-  Serial.println("CAN started.");
+
+  // Initialize ROS
+  allocator = rcl_get_default_allocator();
+  rclc_support_init(&support, 0, NULL, &allocator);
+  rclc_node_init_default(&node, "BMS_node", "", &support);
+
+  // BMS #1 Publishers
+  rclc_publisher_init_default(&bms1_voltage_pub, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32), "/bms1/voltage");
+  rclc_publisher_init_default(&bms1_current_pub, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32), "/bms1/current");
+  rclc_publisher_init_default(&bms1_soc_pub, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32), "/bms1/soc");
+
+  // BMS #2 Publishers
+  rclc_publisher_init_default(&bms2_voltage_pub, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32), "/bms2/voltage");
+  rclc_publisher_init_default(&bms2_current_pub, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32), "/bms2/current");
+  rclc_publisher_init_default(&bms2_soc_pub, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32), "/bms2/soc");
+
+  lastPublishTime = millis();
 }
 
 void loop(){
-  for (int i = 0; i < 2; i++){
-    uint8_t BMS = BMS_ADDR_LIST[i];
+  unsigned long currentTime = millis();
 
-    Serial.printf("\n--- BMS #%d  (ADDR=0x%02X) ---\n", i+1, BMS);
+  if (currentTime - lastPublishTime >= PUBLISH_INTERVAL){
+    lastPublishTime = currentTime;
 
-    Status1 s1;
-    if (!readStatus1(BMS, s1)){
-      Serial.println("STATUS1 timeout.");
-      continue;
-    }
+    for (int i = 0; i < 2; i++){
+      uint8_t BMS = BMS_ADDR_LIST[i];
 
-    Serial.printf("Cells:%u Temps:%u Charger:%u Load:%u IO:0x%02X\n",
-                  s1.nStrings, s1.nTemps, s1.chargerConnected,
-                  s1.loadConnected, s1.ioBits);
+      Status1 s1;
+      if (!readStatus1(BMS, s1)){
+        continue;
+      }
 
-    PackVI p;
-    if (readPackVI(BMS, p)){
-      Serial.print("Pack: V(cum)="); printFloatOrDash(p.cumulativeVoltage_V);
-      Serial.print(" V  Vtot=");     printFloatOrDash(p.totalVoltage_V);
-      Serial.print(" V  I=");        printFloatOrDash(p.current_A);
-      Serial.print(" A  SOC=");      printFloatOrDash(p.soc_pct);
-      Serial.println(" %");
+      PackVI p;
+      if (readPackVI(BMS, p)){
+        if (i == 0){
+          msg_float32.data = p.totalVoltage_V;
+          rcl_publish(&bms1_voltage_pub, &msg_float32, NULL);
+          msg_float32.data = p.current_A;
+          rcl_publish(&bms1_current_pub, &msg_float32, NULL);
+          msg_float32.data = p.soc_pct;
+          rcl_publish(&bms1_soc_pub, &msg_float32, NULL);
+        } else {
+          msg_float32.data = p.totalVoltage_V;
+          rcl_publish(&bms2_voltage_pub, &msg_float32, NULL);
+          msg_float32.data = p.current_A;
+          rcl_publish(&bms2_current_pub, &msg_float32, NULL);
+          msg_float32.data = p.soc_pct;
+          rcl_publish(&bms2_soc_pub, &msg_float32, NULL);
+        }
+      }
     }
   }
-
-  delay(1000);  // one full scan per second
 }
