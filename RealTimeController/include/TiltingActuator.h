@@ -14,7 +14,7 @@ private:
     int _currentPos;
     int _speed;
     
-    //Keep track of manual or auto mode
+    
     bool _manualMode; 
 
     void setMotorSpeed(int speed);

@@ -21,16 +21,17 @@ TiltingActuator tilt(28, 29, 27);
 LiftingActuators lift(8, 7, 6, 5, 4, 3, 26, 25);
 
 // Driving Configuration
-#define MAX_RPM 4000.0f  // Max snelheid motoren
-#define DEADZONE 0.05f   // Joystick deadzone
+const float MAX_RPM = 4000.0f;  // Max RPM of the motors
+const float DEADZONE = 0.05f;   // Joystick deadzone
 
 FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_16> Can3;
-MotorDriver motorFrontLeft(3);
-MotorDriver motorRearLeft(4);
 MotorDriver motorFrontRight(2);
 MotorDriver motorRearRight(1);
+MotorDriver motorFrontLeft(3);
+MotorDriver motorRearLeft(4);
 
-// Configuratie draairichting (Pas aan als ze verkeerd om draaien)
+
+// Configuration motors inversion of the right side
 bool INVERT_LEFT = false;
 bool INVERT_RIGHT = true;
 
@@ -60,10 +61,10 @@ void publish_debug(const char* text) {
 
 void sendGlobalHeartbeat() {
     CAN_message_t msg;
-    msg.id = 0x2052C80; // Heartbeat Base ID uit testcode
+    msg.id = 0x2052C80; // Heartbeat Base ID 
     msg.flags.extended = 1;
     msg.len = 8;
-    memset(msg.buf, 0xFF, 8); // Vullen met FF
+    memset(msg.buf, 0xFF, 8); 
     Can3.write(msg);
 }
 
@@ -72,8 +73,8 @@ void callback_actuator(const void * msgin) {
   const geometry_msgs__msg__Twist * msg = (const geometry_msgs__msg__Twist *)msgin;
   
 // ____________Driving (Tank/Arcade Drive)____________
-  // Linear Y = Gas (Vooruit/Achteruit)
-  // Angular Z = Stuur (Links/Rechts)
+  // Linear Y = Gas (Forward/Backward)
+  // Angular Z = Steering (Left/Right)
    
   float throttle = msg->linear.y;
   float steering = msg->angular.z;
@@ -82,24 +83,24 @@ void callback_actuator(const void * msgin) {
   if (abs(throttle) < DEADZONE) throttle = 0;
   if (abs(steering) < DEADZONE) steering = 0;
 
-  // Mixen (Arcade Drive Formule)
-  // Links = Gas - Stuur | Rechts = Gas + Stuur
+  // Mixing (Arcade Drive Formula)
+  // Left = Throttle - Steering | Right = Throttle + Steering
   float leftOut = throttle - steering;
   float rightOut = throttle + steering;
 
-  // Begrenzen op -1.0 tot 1.0
+  // Constrain to -1.0 to 1.0
   leftOut = constrain(leftOut, -1.0, 1.0);
   rightOut = constrain(rightOut, -1.0, 1.0);
 
-  // Omrekenen naar RPM
+  // Convert to RPM
   float rpmLeft = leftOut * MAX_RPM;
   float rpmRight = rightOut * MAX_RPM;
 
-  // Inverteren indien nodig
+  // Invert
   if (INVERT_LEFT) rpmLeft *= -1;
   if (INVERT_RIGHT) rpmRight *= -1;
 
-  // Stuur naar motoren
+  
   motorFrontLeft.setSpeed(rpmLeft);
   motorRearLeft.setSpeed(rpmLeft);
   motorFrontRight.setSpeed(rpmRight);

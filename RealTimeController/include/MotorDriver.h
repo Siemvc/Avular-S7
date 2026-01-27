@@ -11,16 +11,16 @@ public:
     void update(FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_16>& bus);
     void setSpeed(float rpm);
     
-    float getTargetRPM(); // Wat we willen
-    float getActualRPM(); // Wat we meten via CAN
+    float getTargetRPM();  
+    float getActualRPM(); 
 
-    // Nieuw: Verwerk inkomende berichten
+    
     void parseCanMessage(const CAN_message_t &msg);
 
 private:
     uint8_t _deviceId;
     float _targetRPM;
-    float _actualRPM; // Nieuw
+    float _actualRPM; 
     elapsedMillis _sendTimer;
 };
 

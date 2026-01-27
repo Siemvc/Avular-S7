@@ -13,7 +13,7 @@ LiftingActuators::LiftingActuators(int pinIN1A, int pinIN1B, int pinIN2A, int pi
 }
 
 void LiftingActuators::begin() {
-    pinMode(_pinIN1A, OUTPUT); pinMode(_pinIN2A, OUTPUT); pinMode(_pinENA, OUTPUT);
+    pinMode(_pinIN1A, OUTPUT); pinMode(_pinIN2A, OUTPUT); pinMode(_pinENA, OUTPUT); 
     pinMode(_pinIN1B, OUTPUT); pinMode(_pinIN2B, OUTPUT); pinMode(_pinENB, OUTPUT);
     pinMode(_pinPotA, INPUT);  pinMode(_pinPotB, INPUT);
     
@@ -34,10 +34,10 @@ void LiftingActuators::setMotorSpeed(int speed) {
         return;
     }
 
-    if (speed > 0) { // OMHOOG
+    if (speed > 0) { // UP
         analogWrite(_pinIN1A, speed); analogWrite(_pinIN2A, 0);
         analogWrite(_pinIN1B, speed); analogWrite(_pinIN2B, 0);
-    } else { // OMLAAG
+    } else { // DOWN
         analogWrite(_pinIN1A, 0); analogWrite(_pinIN2A, -speed);
         analogWrite(_pinIN1B, 0); analogWrite(_pinIN2B, -speed);
     }
@@ -46,7 +46,7 @@ void LiftingActuators::setMotorSpeed(int speed) {
 void LiftingActuators::update() {
     _currentPos = analogRead(_pinPotA);
     
-    // In Manual Mode doet deze update loop niks (behalve potmeter lezen)
+    // In Manual Mode this update loop does nothing (except reading the potentiometer)
     if (_manualMode) return;
 
     // Auto Mode (PID)
@@ -64,13 +64,13 @@ void LiftingActuators::update() {
 }
 
 void LiftingActuators::setTargetPosition(int percentage) {
-    _manualMode = false; // PID AAN
+    _manualMode = false; // PID ON
     percentage = constrain(percentage, 0, 100);
     _targetPos = map(percentage, 0, 100, _minPot, _maxPot);
 }
 
 void LiftingActuators::setManualSpeed(float input) {
-    _manualMode = true; // PID UIT, Direct PWM
+    _manualMode = true; // PID OFF, Direct PWM
     int pwm = (int)(input * 255.0);
     if (abs(pwm) < 40) pwm = 0; 
     setMotorSpeed(pwm);

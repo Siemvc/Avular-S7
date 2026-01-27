@@ -1,8 +1,8 @@
 #include "MotorDriver.h"
 
 static const uint32_t SMART_VELOCITY_BASE = 0x20504C0;
-static const uint32_t STATUS_1_BASE     = 0x2051840; // Uit testcode
-static const uint32_t SEND_INTERVAL     = 50;
+static const uint32_t STATUS_1_BASE     = 0x2051840; 
+static const uint32_t SEND_INTERVAL     = 50; //in ms
 
 MotorDriver::MotorDriver(uint8_t deviceId) {
     _deviceId = deviceId;
@@ -23,7 +23,7 @@ float MotorDriver::getActualRPM() {
     return _actualRPM;
 }
 
-void MotorDriver::update(FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_16>& bus) {
+void MotorDriver::update(FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_16>& bus) { //creates the can message
     if (_sendTimer < SEND_INTERVAL) return;
     _sendTimer = 0;
 
@@ -36,9 +36,9 @@ void MotorDriver::update(FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_16>& bus) {
     bus.write(msg);
 }
 
-// NIEUW: Deze haalt de snelheid uit het CAN bericht
+// This retrieves the speed from the CAN message
 void MotorDriver::parseCanMessage(const CAN_message_t &msg) {
-    // Check of dit bericht een Status bericht is voor DEZE motor
+    // Check if this message is a Status message for THIS motor
     if (msg.id == (STATUS_1_BASE + _deviceId) && msg.len >= 4) {
         memcpy(&_actualRPM, &msg.buf[0], 4);
     }

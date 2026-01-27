@@ -16,7 +16,7 @@ private:
     int _targetPos;
     int _currentPos;
     int _speed;
-    bool _manualMode; // <--- NIEUW
+    bool _manualMode; 
 
     void setMotorSpeed(int speed);
 
