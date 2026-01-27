@@ -18,17 +18,17 @@ elapsedMillis heartBeatTimer; // Timer voor de globale CAN heartbeat
 
 // Pin Configuratie Actuators
 TiltingActuator tilt(28, 29, 27); 
-LiftingActuators lift(8, 7, 6, 5, 4, 3, 26, 25);
+LiftingActuators lift(5, 7, 6, 8, 4, 3, 26, 25);
 
 // Driving Configuration
 const float maxRPM = 4000.0f;  // Max RPM of the motors
 const float deadzone = 0.05f;   // Joystick deadzone
 
 FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_16> can3;
-MotorDriver motorFrontRight(2);
-MotorDriver motorRearRight(1);
-MotorDriver motorFrontLeft(3);
-MotorDriver motorRearLeft(4);
+MotorDriver motorRearRight(11);
+MotorDriver motorFrontRight(12);
+MotorDriver motorFrontLeft(13);
+MotorDriver motorRearLeft(14);
 
 
 // Configuration motors inversion of the right side
@@ -50,6 +50,9 @@ geometry_msgs__msg__Twist msg_twist;
 std_msgs__msg__Int32 msg_buttons;
 std_msgs__msg__String msg_debug;
 char debugBuffer[255]; // Buffer for debug string
+// NIEUW: Variabelen om input te onthouden voor debug
+float debug_joy_lift = 0.0;
+int debug_last_preset = -1;
 
 //Debug publish function
 void PublishDebug(const char* text) {
@@ -71,7 +74,7 @@ void sendGlobalHeartbeat() {
 // CALLBACK: Joystick
 void CallbackActuator(const void * msgin) {
   const geometry_msgs__msg__Twist * msg = (const geometry_msgs__msg__Twist *)msgin;
-  
+  debug_joy_lift = msg->angular.x;
 // ____________Driving (Tank/Arcade Drive)____________
   // Linear Y = Gas (Forward/Backward)
   // Angular Z = Steering (Left/Right)
@@ -110,17 +113,19 @@ void CallbackActuator(const void * msgin) {
   //____________Actuators____________
   //Only switch to Manual Mode if you MOVE the stick.
   //Lifting Actuator
+ // LIFT
   if (abs(msg->angular.x) > 0.1) {
       lift.setManualSpeed(msg->angular.x);
-  } else if (lift.getLastSpeed() != 0 && lift.getTargetPositionRaw() == -1) {
-      //If we where in manual mode (no target), and we release the stick -> STOP
+  } 
+  // FIX 2: Check of hij beweegt EN of we in Manual Mode zitten (veiliger dan Target check)
+  else if (lift.getSpeedA() != 0 && lift.isManualMode()) {
       lift.setManualSpeed(0);
   }
-  //Tilting Actuator
+  
+  // TILT
   if (abs(msg->angular.y) > 0.1) {
       tilt.setManualSpeed(msg->angular.y);
   } else if (tilt.getLastSpeed() != 0 && tilt.getTargetPositionRaw() == -1) {
-      //If we where in manual mode (no target), and we release the stick -> STOP
       tilt.setManualSpeed(0);
   }
 }
@@ -128,23 +133,23 @@ void CallbackActuator(const void * msgin) {
 //____________CALLBACK: Button Presets____________
 void CallbackButtons(const void * msgin) {
   const std_msgs__msg__Int32 * msg = (const std_msgs__msg__Int32 *)msgin;
-  
+  debug_last_preset = msg->data;
   // 0 = Cross [Enter positon name here]
   if (msg->data == 0) { 
       lift.setTargetPosition(15); //Distance in mm
-      tilt.setTargetPosition(5);  //Distance in mm
+      tilt.setTargetPosition(50);  //Distance in mm
       PublishDebug("Preset: MODE NAME");
   }
   // 1 = Round [Enter positon name here]
   else if (msg->data == 1) { 
       lift.setTargetPosition(30); //Distance in mm
-      tilt.setTargetPosition(80); //Distance in mm
+      tilt.setTargetPosition(100); //Distance in mm
       PublishDebug("Preset: MODE NAME");
   }
   // 2 = Driehoekje (Dump Hoog)
   else if (msg->data == 2) { 
       lift.setTargetPosition(90);  //Distance in mm
-      tilt.setTargetPosition(100); //Distance in mm
+      tilt.setTargetPosition(200); //Distance in mm
       PublishDebug("Preset: MODE NAME");
   }
 }
@@ -183,7 +188,7 @@ void setup() {
   //Buttons Subscriber
   rclc_subscription_init_default(&sub_buttons, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32), "/actuator_buttons");
   //Messages
-  rclc_executor_init(&executor, &support.context, 3, &allocator); 
+  rclc_executor_init(&executor, &support.context, 5, &allocator); 
   rclc_executor_add_subscription(&executor, &sub_actuator, &msg_twist, &CallbackActuator, ON_NEW_DATA);
   rclc_executor_add_subscription(&executor, &sub_buttons, &msg_buttons, &CallbackButtons, ON_NEW_DATA);
 }
@@ -212,14 +217,15 @@ void loop() {
   if (debugTimer > 100) {
     debugTimer = 0;
     
-    //Simpele debug string
-    sprintf(debugBuffer, "LIFT:%d TILT:%d | L: T%.0f/A%.0f | R: T%.0f/A%.0f", 
-            lift.getCurrentPosition(), 
-            tilt.getCurrentPosition(),
-            motorFrontLeft.getTargetRPM(),
-            motorFrontLeft.getActualRPM(),
-            motorFrontRight.getTargetRPM(),
-            motorFrontRight.getActualRPM()
+   const char* modeStr = lift.isManualMode() ? "MAN" : "AUT";
+    
+    sprintf(debugBuffer, "MOD:%s JOY:%.2f BTN:%d | LIFT:%dmm A:%d/%d B:%d/%d", 
+            modeStr,                  // Modus (MAN/AUT)
+            debug_joy_lift,           // Joystick input (-1.0 tot 1.0)
+            debug_last_preset,        // Laatste knop (0, 1, 2)
+            lift.getCurrentPosition(),
+            lift.getPosA(), lift.getTargetA(),
+            lift.getPosB(), lift.getTargetB()
             );
     PublishDebug(debugBuffer);
   }

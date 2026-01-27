@@ -11,26 +11,45 @@ private:
 
     int _minPWM, _maxPWM, _deadband;
     float _kp;
-    int _minPot, _maxPot;
     
-    int _targetPos;
-    int _currentPos;
-    int _speed;
+    // Configuratie
+    const int _strokeLength = 300; 
+    int _minPotA, _maxPotA; 
+    int _minPotB, _maxPotB; 
+    
+    int _targetPosA, _targetPosB;
+    int _currentPosA, _currentPosB;
+    
+    int _speedA, _speedB;
     bool _manualMode; 
 
-    void setMotorSpeed(int speed);
+    void setMotorASpeed(int speed);
+    void setMotorBSpeed(int speed);
 
 public:
     LiftingActuators(int pinIN1A, int pinIN1B, int pinIN2A, int pinIN2B, int pinENA, int pinENB, int pinPotA, int pinPotB);
     void begin();
     void update();
     
-    void setTargetPosition(int percentage); // Auto
-    void setManualSpeed(float input);       // Manual
+    void setTargetPosition(int mm); 
+    void setManualSpeed(float input);       
 
-    int getCurrentPosition();
-    int getTargetPositionRaw();
-    int getLastSpeed();
+    int getCurrentPosition(); 
+    
+    // DEBUG GETTERS (Deze moeten hier staan!)
+    int getPosA();    
+    int getPosB();
+    int getTargetA(); 
+    int getTargetB();
+    int getSpeedA(); 
+    int getSpeedB();
+ 
+    
+    // NIEUW: Status opvragen
+    bool isManualMode();
+    
+    // Helper voor main.cpp logica
+    int getTargetPositionRaw(); // Geeft doel van A terug
 };
 
 #endif

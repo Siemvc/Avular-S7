@@ -4,9 +4,8 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Joy
 from geometry_msgs.msg import Twist
-=======
 from std_msgs.msg import Bool, Int32
->>>>>>> Remote-controller-to-actuator-test
+
 
 class Control(Node):
     def __init__(self, name):

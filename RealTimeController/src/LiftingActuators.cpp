@@ -5,10 +5,23 @@ LiftingActuators::LiftingActuators(int pinIN1A, int pinIN1B, int pinIN2A, int pi
     _pinIN1B = pinIN1B; _pinIN2B = pinIN2B; _pinENB = pinENB;
     _pinPotA = pinPotA; _pinPotB = pinPotB;
 
-    _minPWM = 70; _maxPWM = 255;
-    _deadband = 10; _kp = 6.0;
-    _minPot = 30; _maxPot = 785;
-    _targetPos = -1;
+    _minPWM = 60; _maxPWM = 250;
+    _deadband = 10; 
+    _kp = 8.0; 
+
+    // KALIBRATIE (0mm = Ingeschoven, 300mm = Uitgeschoven)
+    // Waardes dalen naarmate hij uitgaat (volgens jouw meting)
+    
+    // Links (A)
+    _minPotA = 985; // 0mm
+    _maxPotA = 385; // 300mm
+    
+    // Rechts (B)
+    _minPotB = 946; // 0mm
+    _maxPotB = 403; // 300mm
+
+    _targetPosA = -1;
+    _targetPosB = -1;
     _manualMode = true;
 }
 
@@ -18,64 +31,115 @@ void LiftingActuators::begin() {
     pinMode(_pinPotA, INPUT);  pinMode(_pinPotB, INPUT);
     
     digitalWrite(_pinENA, HIGH); digitalWrite(_pinENB, HIGH);
-    _currentPos = analogRead(_pinPotA);
+    
+    _currentPosA = analogRead(_pinPotA);
+    _currentPosB = analogRead(_pinPotB);
 }
 
-void LiftingActuators::setMotorSpeed(int speed) {
-    // --- SOFT LIMIT CHECK ---
-    if (_currentPos < _minPot && speed < 0) speed = 0;
-    if (_currentPos > _maxPot && speed > 0) speed = 0;
+void LiftingActuators::setMotorASpeed(int speed) {
+    // Soft limits A
+    if (_currentPosA > _minPotA && speed < 0) speed = 0; 
+    if (_currentPosA < _maxPotA && speed > 0) speed = 0;
 
-    _speed = speed;
-
+    _speedA = speed;
     if (speed == 0) {
         analogWrite(_pinIN1A, 0); analogWrite(_pinIN2A, 0);
-        analogWrite(_pinIN1B, 0); analogWrite(_pinIN2B, 0);
-        return;
-    }
-
-    if (speed > 0) { // UP
+    } else if (speed > 0) { 
         analogWrite(_pinIN1A, speed); analogWrite(_pinIN2A, 0);
-        analogWrite(_pinIN1B, speed); analogWrite(_pinIN2B, 0);
-    } else { // DOWN
+    } else { 
         analogWrite(_pinIN1A, 0); analogWrite(_pinIN2A, -speed);
+    }
+}
+
+void LiftingActuators::setMotorBSpeed(int speed) {
+    // Soft limits B
+    if (_currentPosB > _minPotB && speed < 0) speed = 0;
+    if (_currentPosB < _maxPotB && speed > 0) speed = 0;
+
+    _speedB = speed;
+    if (speed == 0) {
+        analogWrite(_pinIN1B, 0); analogWrite(_pinIN2B, 0);
+    } else if (speed > 0) {
+        analogWrite(_pinIN1B, speed); analogWrite(_pinIN2B, 0);
+    } else {
         analogWrite(_pinIN1B, 0); analogWrite(_pinIN2B, -speed);
     }
 }
 
 void LiftingActuators::update() {
-    _currentPos = analogRead(_pinPotA);
+    _currentPosA = analogRead(_pinPotA);
+    _currentPosB = analogRead(_pinPotB);
     
-    // In Manual Mode this update loop does nothing (except reading the potentiometer)
     if (_manualMode) return;
+    if (_targetPosA == -1) return;
 
-    // Auto Mode (PID)
-    if (_targetPos == -1) return;
-
-    int error = _targetPos - _currentPos;
-    if (abs(error) > _deadband) {
-        int calcSpeed = error * _kp;
-        if (calcSpeed > 0) calcSpeed = constrain(calcSpeed, _minPWM, _maxPWM);
-        else calcSpeed = constrain(calcSpeed, -_maxPWM, -_minPWM);
-        setMotorSpeed(calcSpeed);
+    // --- P Control Loops ---
+    // Verschil berekenen
+    // Let op: Bij jouw potmeters is (Huidig - Doel) positief als we UIT moeten.
+    // Voorbeeld: Huidig=985(0mm), Doel=385(300mm). Verschil = 600.
+    // Wij willen positieve speed voor UIT. Dus error * KP klopt.
+    
+    int errorA = _currentPosA - _targetPosA; 
+    if (abs(errorA) > _deadband) {
+        int pwmA = errorA * _kp;
+        if (pwmA > 0) pwmA = constrain(pwmA, _minPWM, _maxPWM);
+        else pwmA = constrain(pwmA, -_maxPWM, -_minPWM);
+        setMotorASpeed(pwmA);
     } else {
-        setMotorSpeed(0);
+        setMotorASpeed(0);
+    }
+
+    int errorB = _currentPosB - _targetPosB;
+    if (abs(errorB) > _deadband) {
+        int pwmB = errorB * _kp;
+        if (pwmB > 0) pwmB = constrain(pwmB, _minPWM, _maxPWM);
+        else pwmB = constrain(pwmB, -_maxPWM, -_minPWM);
+        setMotorBSpeed(pwmB);
+    } else {
+        setMotorBSpeed(0);
     }
 }
 
-void LiftingActuators::setTargetPosition(int percentage) {
-    _manualMode = false; // PID ON
-    percentage = constrain(percentage, 0, 100);
-    _targetPos = map(percentage, 0, 100, _minPot, _maxPot);
+// AANGEPAST: Input is nu millimeters (0-300)
+void LiftingActuators::setTargetPosition(int mm) {
+    _manualMode = false; 
+    mm = constrain(mm, 0, _strokeLength); // 0 tot 300
+    
+    _targetPosA = map(mm, 0, _strokeLength, _minPotA, _maxPotA);
+    _targetPosB = map(mm, 0, _strokeLength, _minPotB, _maxPotB);
 }
 
 void LiftingActuators::setManualSpeed(float input) {
-    _manualMode = true; // PID OFF, Direct PWM
+    _manualMode = true; 
+    
+    // FIX: Reset de targets als we handmatig overnemen. 
+    // Dit voorkomt dat de main loop in de war raakt.
+    _targetPosA = -1;
+    _targetPosB = -1;
+
     int pwm = (int)(input * 255.0);
+    // Deadzone filter voor PWM output (voorkomt zoemen op lage spanning)
     if (abs(pwm) < 40) pwm = 0; 
-    setMotorSpeed(pwm);
+    
+    setMotorASpeed(pwm);
+    setMotorBSpeed(pwm);
 }
 
-int LiftingActuators::getCurrentPosition() { return map(_currentPos, _minPot, _maxPot, 0, 100); }
-int LiftingActuators::getTargetPositionRaw() { return _targetPos; }
-int LiftingActuators::getLastSpeed() { return _speed; }
+int LiftingActuators::getCurrentPosition() { 
+    int mmA = map(_currentPosA, _minPotA, _maxPotA, 0, _strokeLength);
+    int mmB = map(_currentPosB, _minPotB, _maxPotB, 0, _strokeLength);
+    return (mmA + mmB) / 2; 
+}
+
+// DEBUG IMPLEMENTATIE
+int LiftingActuators::getPosA()    { return _currentPosA; }
+int LiftingActuators::getPosB()    { return _currentPosB; }
+int LiftingActuators::getTargetA() { return _targetPosA; }
+int LiftingActuators::getTargetB() { return _targetPosB; }
+int LiftingActuators::getSpeedA()  { return _speedA; }
+int LiftingActuators::getSpeedB()  { return _speedB; }
+
+// NIEUW
+bool LiftingActuators::isManualMode() { return _manualMode; }
+
+int LiftingActuators::getTargetPositionRaw() { return _targetPosA; }
