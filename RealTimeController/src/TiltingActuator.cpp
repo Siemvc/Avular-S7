@@ -1,90 +1,73 @@
 #include "TiltingActuator.h"
 
-// 1. De Constructor (Instellingen opslaan)
-TiltingActuator::TiltingActuator(int pinUp, int pinDown, int pinPot) {
-    _pinUp = pinUp;
-    _pinDown = pinDown;
-    _pinPot = pinPot;
-
-    // Standaard waarden (kun je hier aanpassen of via setters doen)
-    _minPWM = 60;
-    _maxPWM = 245;
-    _deadband = 5;
-    _kp = 7;
-    _speed = 0;
-    
-    // Potmeter kalibratie
-    _minPot = 30;
-    _maxPot = 785;
-
-    _targetPos = -1; // -1 betekent: nog geen doel
+TiltingActuator::TiltingActuator(int pinIN1, int pinIN2, int pinPot) {
+    _pinIN1 = pinIN1; _pinIN2 = pinIN2; _pinPot = pinPot;
+    _minPWM = 60;   _maxPWM = 250;
+    _deadband = 10; _kp = 6.0;
+    _minPot = 215;   _maxPot = 550;  //Min and max pysical potmeter values
+    _targetPos = -1;
+    _manualMode = true; //Begin in manual mode
 }
 
-// 2. Setup (pinModes)
 void TiltingActuator::begin() {
-    pinMode(_pinUp, OUTPUT);
-    pinMode(_pinDown, OUTPUT);
-    pinMode(_pinPot, INPUT);
-    
-    // Lees startpositie zodat hij niet wegspringt
+    pinMode(_pinIN1, OUTPUT); pinMode(_pinIN2, OUTPUT); pinMode(_pinPot, INPUT);
     _currentPos = analogRead(_pinPot);
-    _targetPos = _currentPos;
 }
 
-// 3. Interne motor aansturing
 void TiltingActuator::setMotorSpeed(int speed) {
-    if (speed > 0) {
-        analogWrite(_pinUp, speed);
-        analogWrite(_pinDown, 0);
-    } else if (speed < 0) {
-        analogWrite(_pinDown, -speed); // Positief maken
-        analogWrite(_pinUp, 0);
+    //Soft limiter
+    if (_currentPos < _minPot && speed < 0) speed = 0;
+    if (_currentPos > _maxPot && speed > 0) speed = 0;
+
+    _speed = speed; //Safe for debugging
+
+    if (speed == 0) {
+        analogWrite(_pinIN1, 0); analogWrite(_pinIN2, 0);
+    } else if (speed > 0) {
+        analogWrite(_pinIN1, speed); analogWrite(_pinIN2, 0);
     } else {
-        analogWrite(_pinDown, 0);
-        analogWrite(_pinUp, 0);
+        analogWrite(_pinIN1, 0); analogWrite(_pinIN2, -speed);
     }
 }
 
-// 4. De Update Loop (P-Controller)
 void TiltingActuator::update() {
     _currentPos = analogRead(_pinPot);
-    // Veiligheid: Als target nog niet gezet is, doe niks
+    //If we are in manual mode, skip auto control
+    if (_manualMode) return;
+
+    // Auto mode, P-controller
     if (_targetPos == -1) return;
 
     int error = _targetPos - _currentPos;
 
     if (abs(error) > _deadband) {
-        _speed = error * _kp;
-                
-        // Limit speed to min/max PWM
-        if (_speed > 0) _speed = constrain(_speed, _minPWM, _maxPWM);
-        else _speed = constrain(_speed, -_maxPWM, -_minPWM);
+        int calculatedSpeed = error * _kp; // P-control
+        if (calculatedSpeed > 0) calculatedSpeed = constrain(calculatedSpeed, _minPWM, _maxPWM);
+        else calculatedSpeed = constrain(calculatedSpeed, -_maxPWM, -_minPWM);
+        setMotorSpeed(calculatedSpeed);
 
-        setMotorSpeed(_speed);
-
-    } else {
+    } else { // Within deadband
         setMotorSpeed(0);
-        
     }
-    //Debug
-    Serial.printf("Pos: %d | Target: %d | Error: %d | Speed: %d\n", _currentPos, _targetPos, error, _speed);
-
- 
 }
 
-// 5. Setter voor het doel (Accepteert 0 - 100%)
-void TiltingActuator::setTargetPosition(int percentage) {
-    // Veiligheid: begrens input
-    percentage = constrain(percentage, 0, 100);
-    
-    // Map percentage naar Potmeter waarden
-    _targetPos = map(percentage, 0, 100, _minPot, _maxPot);
-    
-    // Serial print kan hier ook, of in main
-    // Serial.printf("Nieuw doel ingesteld: %d%%\n", percentage);
+void TiltingActuator::setTargetPosition(int distance) {
+    _manualMode = false; // Switch to auto mode
+    distance = constrain(distance, 25, 69);
+    _targetPos = map(distance, 0, 100, _minPot, _maxPot);
 }
 
-// 6. Getter voor huidige positie
-int TiltingActuator::getCurrentPosition() {
-    return _currentPos;
+void TiltingActuator::setManualSpeed(float input) {
+    _manualMode = true; //Switch to manual mode
+    //Input is -1.0 to 1.0 from joystick, map to PWM (-255 to 255)
+    int pwm = (int)(input * _maxPWM);
+
+    //Simple deadzone on the joystick itself
+    if (abs(pwm) < 40) pwm = 0;
+    setMotorSpeed(pwm);
 }
+
+// Getters for debugging
+int TiltingActuator::getCurrentPosition() { return map(_currentPos, _minPot, _maxPot, 0, 100); }
+int TiltingActuator::getTargetPositionRaw() { return _targetPos; }
+int TiltingActuator::getLastSpeed() { return _speed; }
