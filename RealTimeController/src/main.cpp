@@ -14,17 +14,17 @@
 #include "LiftingActuators.h" 
 
 elapsedMillis debugTimer;
-elapsedMillis heartbeatTimer; // Timer voor de globale CAN heartbeat
+elapsedMillis heartBeatTimer; // Timer voor de globale CAN heartbeat
 
 // Pin Configuratie Actuators
 TiltingActuator tilt(28, 29, 27); 
 LiftingActuators lift(8, 7, 6, 5, 4, 3, 26, 25);
 
 // Driving Configuration
-const float MAX_RPM = 4000.0f;  // Max RPM of the motors
-const float DEADZONE = 0.05f;   // Joystick deadzone
+const float maxRPM = 4000.0f;  // Max RPM of the motors
+const float deadzone = 0.05f;   // Joystick deadzone
 
-FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_16> Can3;
+FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_16> can3;
 MotorDriver motorFrontRight(2);
 MotorDriver motorRearRight(1);
 MotorDriver motorFrontLeft(3);
@@ -32,8 +32,8 @@ MotorDriver motorRearLeft(4);
 
 
 // Configuration motors inversion of the right side
-bool INVERT_LEFT = false;
-bool INVERT_RIGHT = true;
+bool invertMotorLeft = false;
+bool invertMotorRight = true;
 
 //ROS Objects 
 rcl_node_t node;
@@ -49,10 +49,10 @@ rcl_subscription_t sub_buttons;
 geometry_msgs__msg__Twist msg_twist;
 std_msgs__msg__Int32 msg_buttons;
 std_msgs__msg__String msg_debug;
-char debug_buffer[255];
+char debugBuffer[255]; // Buffer for debug string
 
 //Debug publish function
-void publish_debug(const char* text) {
+void PublishDebug(const char* text) {
   msg_debug.data.data = (char*)text;
   msg_debug.data.size = strlen(text);
   msg_debug.data.capacity = strlen(text) + 1;
@@ -65,11 +65,11 @@ void sendGlobalHeartbeat() {
     msg.flags.extended = 1;
     msg.len = 8;
     memset(msg.buf, 0xFF, 8); 
-    Can3.write(msg);
+    can3.write(msg);
 }
 
 // CALLBACK: Joystick
-void callback_actuator(const void * msgin) {
+void CallbackActuator(const void * msgin) {
   const geometry_msgs__msg__Twist * msg = (const geometry_msgs__msg__Twist *)msgin;
   
 // ____________Driving (Tank/Arcade Drive)____________
@@ -80,8 +80,8 @@ void callback_actuator(const void * msgin) {
   float steering = msg->angular.z;
 
   // Deadzone filter
-  if (abs(throttle) < DEADZONE) throttle = 0;
-  if (abs(steering) < DEADZONE) steering = 0;
+  if (abs(throttle) < deadzone) throttle = 0;
+  if (abs(steering) < deadzone) steering = 0;
 
   // Mixing (Arcade Drive Formula)
   // Left = Throttle - Steering | Right = Throttle + Steering
@@ -93,12 +93,12 @@ void callback_actuator(const void * msgin) {
   rightOut = constrain(rightOut, -1.0, 1.0);
 
   // Convert to RPM
-  float rpmLeft = leftOut * MAX_RPM;
-  float rpmRight = rightOut * MAX_RPM;
+  float rpmLeft = leftOut * maxRPM;
+  float rpmRight = rightOut * maxRPM;
 
   // Invert
-  if (INVERT_LEFT) rpmLeft *= -1;
-  if (INVERT_RIGHT) rpmRight *= -1;
+  if (invertMotorLeft) rpmLeft *= -1;
+  if (invertMotorRight) rpmRight *= -1;
 
   
   motorFrontLeft.setSpeed(rpmLeft);
@@ -126,31 +126,31 @@ void callback_actuator(const void * msgin) {
 }
 
 //____________CALLBACK: Button Presets____________
-void callback_buttons(const void * msgin) {
+void CallbackButtons(const void * msgin) {
   const std_msgs__msg__Int32 * msg = (const std_msgs__msg__Int32 *)msgin;
   
   // 0 = Cross [Enter positon name here]
   if (msg->data == 0) { 
       lift.setTargetPosition(15); //Distance in mm
       tilt.setTargetPosition(5);  //Distance in mm
-      publish_debug("Preset: MODE NAME");
+      PublishDebug("Preset: MODE NAME");
   }
   // 1 = Round [Enter positon name here]
   else if (msg->data == 1) { 
       lift.setTargetPosition(30); //Distance in mm
       tilt.setTargetPosition(80); //Distance in mm
-      publish_debug("Preset: MODE NAME");
+      PublishDebug("Preset: MODE NAME");
   }
   // 2 = Driehoekje (Dump Hoog)
   else if (msg->data == 2) { 
       lift.setTargetPosition(90);  //Distance in mm
       tilt.setTargetPosition(100); //Distance in mm
-      publish_debug("Preset: MODE NAME");
+      PublishDebug("Preset: MODE NAME");
   }
 }
 
 
-void canSniff(const CAN_message_t &msg) {
+void CanSniff(const CAN_message_t &msg) {
     motorFrontLeft.parseCanMessage(msg);
     motorRearLeft.parseCanMessage(msg);
     motorFrontRight.parseCanMessage(msg);
@@ -160,9 +160,9 @@ void canSniff(const CAN_message_t &msg) {
 void setup() {
   analogReadResolution(10); 
 
-  Can3.begin(); 
-  Can3.setBaudRate(1000000); 
-  Can3.onReceive(canSniff);
+  can3.begin(); 
+  can3.setBaudRate(1000000); 
+  can3.onReceive(CanSniff);
 
   tilt.begin();
   lift.begin();
@@ -184,8 +184,8 @@ void setup() {
   rclc_subscription_init_default(&sub_buttons, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32), "/actuator_buttons");
   //Messages
   rclc_executor_init(&executor, &support.context, 3, &allocator); 
-  rclc_executor_add_subscription(&executor, &sub_actuator, &msg_twist, &callback_actuator, ON_NEW_DATA);
-  rclc_executor_add_subscription(&executor, &sub_buttons, &msg_buttons, &callback_buttons, ON_NEW_DATA);
+  rclc_executor_add_subscription(&executor, &sub_actuator, &msg_twist, &CallbackActuator, ON_NEW_DATA);
+  rclc_executor_add_subscription(&executor, &sub_buttons, &msg_buttons, &CallbackButtons, ON_NEW_DATA);
 }
 
 void loop() {
@@ -194,20 +194,18 @@ void loop() {
   lift.update();
   
   // Motor updates
-  motorFrontLeft.update(Can3);
-  motorRearLeft.update(Can3);
-  motorFrontRight.update(Can3);
-  motorRearRight.update(Can3);
+  motorFrontLeft.update(can3);
+  motorRearLeft.update(can3);
+  motorFrontRight.update(can3);
+  motorRearRight.update(can3);
 
 
-  if (heartbeatTimer > 20) {
-      heartbeatTimer = 0;
+  if (heartBeatTimer > 20) {
+      heartBeatTimer = 0;
       sendGlobalHeartbeat();
   }
   
-  Can3.events();
-
-  // ROS
+  can3.events();  // ROS
   rclc_executor_spin_some(&executor, RCL_MS_TO_NS(10));
 
   // Debug
@@ -215,7 +213,7 @@ void loop() {
     debugTimer = 0;
     
     //Simpele debug string
-    sprintf(debug_buffer, "LIFT:%d TILT:%d | L: T%.0f/A%.0f | R: T%.0f/A%.0f", 
+    sprintf(debugBuffer, "LIFT:%d TILT:%d | L: T%.0f/A%.0f | R: T%.0f/A%.0f", 
             lift.getCurrentPosition(), 
             tilt.getCurrentPosition(),
             motorFrontLeft.getTargetRPM(),
@@ -223,6 +221,6 @@ void loop() {
             motorFrontRight.getTargetRPM(),
             motorFrontRight.getActualRPM()
             );
-    publish_debug(debug_buffer);
+    PublishDebug(debugBuffer);
   }
 }
