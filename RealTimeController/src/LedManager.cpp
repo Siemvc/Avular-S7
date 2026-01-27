@@ -12,6 +12,10 @@ void LedManager::begin(int pin, int numLeds) {
     _startTime = millis();
 }
 
+void LedManager::setState(avuloaderState newState) {
+    _currentMode = newState;
+}
+
 void LedManager::update() {
     handleLeds();
     FastLED.show();
@@ -21,7 +25,7 @@ void LedManager::handleLeds() {
     switch (_currentMode) {
         case Startup:
             if(millis()- _startTime < 5000){
-                effectFlash(CRGB::Green2, 300)
+                effectFlash(CRGB::Green2, 300);
             } else{
                 _currentMode = Standby;
             }

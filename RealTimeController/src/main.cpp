@@ -14,6 +14,8 @@
 #include "LiftingActuators.h" 
 #include "LedManager.h"
 
+LedManager leds;
+
 elapsedMillis debugTimer;
 elapsedMillis heartBeatTimer; // Timer voor de globale CAN heartbeat
 
