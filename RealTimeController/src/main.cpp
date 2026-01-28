@@ -22,8 +22,6 @@ BMS bms[2] = { BMS(BMS_ADDR_LIST[0]), BMS(BMS_ADDR_LIST[1]) };
 float batteryVoltage = 0;
 const float batteryLowVoltageThreshold = 19.0; // Voltage threshold for low battery indication
 
-static uint8_t PC_ADDR = 0x40;
-
 unsigned long lastCanBusBMSRead = 0;
 const unsigned long CAN_BUS_BMS_READ_INTERVAL = 200; //in ms
 
@@ -202,7 +200,7 @@ void setup() {
   unsigned long timeLedStart = millis();
   leds.setState(Startup);
 
-  while(millis(-timeLedStart < 3000)){
+  while(millis() - timeLedStart < 3000){
     leds.update();
     delay(1);
   }
