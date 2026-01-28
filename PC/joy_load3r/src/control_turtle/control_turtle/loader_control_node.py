@@ -81,7 +81,11 @@ class Control(Node):
             self.buttons_pub.publish(Int32(data=2))
         
         #OTHER BUTTONS
-        d_pad_x = msg.axes[6]
+        if len(msg.axes) > 6:
+            d_pad_x = msg.axes[6]
+        else:
+            d_pad_x = 0.0 # Default waarde als de as niet bestaat
+            
         if d_pad_x == -1 and self.prev_d_pad_x == 0.0:
             self.lights_on = not self.lights_on
             self.lights_pub.publish(Bool(data=self.lights_on))
