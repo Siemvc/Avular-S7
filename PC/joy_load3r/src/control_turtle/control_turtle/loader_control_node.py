@@ -29,6 +29,8 @@ class Control(Node):
         self.prev_cross = 0
         self.prev_circle = 0
         self.prev_triangle = 0
+
+        self.optionButton_prev = 0
         
         # Send initial states
         self.standby_pub.publish(Bool(data=self.standby_active))
@@ -93,7 +95,7 @@ class Control(Node):
             self.get_logger().info(f"Standby: {self.standby_active}")
 
         optionButton = msg.buttons[9]  # Options Button
-        if optionButton == 1:
+        if optionButton == 1 and self.optionButton_prev == 0:
             os.system("shutdown now -h")  # Shutdown command
 
         #Update previous states
@@ -102,7 +104,8 @@ class Control(Node):
         self.prev_triangle = triangle
         self.prev_d_pad_x = d_pad_x
         self.prev_standby = standby_btn
-
+        self.optionButton_prev = optionButton
+        
 def main(args=None):
     rclpy.init(args=args)
     node = Control("control_Node")
