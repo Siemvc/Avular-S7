@@ -17,7 +17,7 @@
 
 //bms
 uint8_t BMS_ADDR_LIST[2] = { 0x01, 0x02 };
-BMS bms(BMS_ADDR_LIST[0]);
+BMS bms[2] = { BMS(BMS_ADDR_LIST[0]), BMS(BMS_ADDR_LIST[1]) };
 
 float batteryVoltage = 0;
 const float batteryLowVoltageThreshold = 19.0; // Voltage threshold for low battery indication
@@ -183,7 +183,8 @@ void CanSniff(const CAN_message_t &msg) {
 void setup() {
     can2.begin();
     can2.setBaudRate(1000000);
-    bms.init(can2);
+    bms[0].init(can2);
+    bms[1].init(can2);
 
     leds.begin(23, 8); //led_PIN , Num_leds
 
@@ -236,10 +237,9 @@ void setup() {
 void loop() {
     if (millis() - lastCanBusBMSRead >= CAN_BUS_BMS_READ_INTERVAL) {
         batteryVoltage = 0;
-        for (int i = 0; i < sizeof(BMS_ADDR_LIST); i++) {
-            uint8_t BMSAdress = BMS_ADDR_LIST[i];
+        for (int i = 0; i < 2; i++) {
             //Status1 s1;
-            // if (!bms.readStatus1(s1)){
+            // if (!bms[i].readStatus1(s1)){
             //     // No response; skip this BMS this cycle
             //     continue;
             // }
@@ -247,8 +247,8 @@ void loop() {
             PackVI p;
             TempData t;
             
-            bms.readPackVI(p);
-            bms.readTempData(t); //this doesn't do anything yet
+            bms[i].readPackVI(p);
+            bms[i].readTempData(t); //this doesn't do anything yet
 
             batteryVoltage += p.totalVoltage_V;
         }
