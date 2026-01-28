@@ -23,12 +23,7 @@ void LedManager::update() {
 
 void LedManager::handleLeds() {
     switch (_currentMode) {
-        case Startup:
-            if(millis()- _startTime < 5000){
-                effectFlash(CRGB::Green2, 300);
-            } else{
-                _currentMode = Standby;
-            }
+        case Startup:        effectFlash(CRGB::Green2, 300); break;
         case Shutdown:       effectBreathing(CRGB::Magenta3); break;
         case Standby:        effectBreathing(CRGB::Blue3); break;
         case Operational:    effectBreathing(CRGB::Green2); break;
