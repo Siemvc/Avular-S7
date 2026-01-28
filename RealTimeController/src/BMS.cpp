@@ -3,7 +3,7 @@
 BMS::BMS(uint8_t address) 
   : _address(address), _bus(nullptr) {}
 
-bool BMS::init(FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_16>& bus) {
+bool BMS::init(FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16>& bus) { //bms is on can2
   _bus = &bus;
   return true;
 }

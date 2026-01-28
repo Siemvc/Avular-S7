@@ -13,6 +13,20 @@
 #include "TiltingActuator.h"  
 #include "LiftingActuators.h" 
 #include "LedManager.h"
+#include "BMS.h"
+
+//bms
+uint8_t BMS_ADDR_LIST[2] = { 0x01, 0x02 };
+BMS bms(BMS_ADDR_LIST[0]);
+
+float batteryVoltage = 0;
+const float batteryLowVoltageThreshold = 19.0; // Voltage threshold for low battery indication
+
+static uint8_t PC_ADDR = 0x40;
+
+unsigned long lastCanBusBMSRead = 0;
+const unsigned long CAN_BUS_BMS_READ_INTERVAL = 200; //in ms
+
 
 LedManager leds;
 
@@ -166,7 +180,11 @@ void CanSniff(const CAN_message_t &msg) {
 }
 
 void setup() {
-  leds.begin(23, 8); //led_PIN , Num_leds
+    bms.init();
+
+
+
+    leds.begin(23, 8); //led_PIN , Num_leds
 
   analogReadResolution(10); 
 
@@ -208,6 +226,30 @@ void setup() {
 }
 
 void loop() {
+    if (millis() - lastCanBusBMSRead >= CAN_BUS_BMS_READ_INTERVAL) {
+        batteryVoltage = 0;
+        for (int i = 0; i < sizeof(BMS_ADDR_LIST); i++) {
+            BMSAdress = BMS_ADDR_LIST[i];
+            //Status1 s1;
+            // if (!readStatus1(BMSAdress, s1)){
+            //     // No response; skip this BMS this cycle
+            //     continue;
+            // }
+
+            PackVI p;
+            TempData t;
+            
+            readPackVI(BMSAdress, p);
+            readTempData(BMSAdress, t); //this doesn't do anything yet
+
+            batteryVoltage += p.totalVoltage_V;
+        }
+        if ((batteryVoltage / 2) < batteryLowVoltageThreshold) {
+            leds.setState(Low_power);
+        }
+        lastCanBusBMSRead = millis();
+    }
+
   leds.update();
   // Actuator updates
   tilt.update();
