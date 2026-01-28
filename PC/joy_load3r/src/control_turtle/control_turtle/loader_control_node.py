@@ -91,6 +91,10 @@ class Control(Node):
             self.standby_pub.publish(Bool(data=self.standby_active))
             self.get_logger().info(f"Standby: {self.standby_active}")
 
+        optionButton = msg.buttons[9]  # Options Button
+        if optionButton == 1:
+            os.system("shutdown now -h")  # Shutdown command
+
         #Update previous states
         self.prev_cross = cross
         self.prev_circle = circle
