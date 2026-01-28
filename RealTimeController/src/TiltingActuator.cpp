@@ -12,6 +12,7 @@ TiltingActuator::TiltingActuator(int pinUp, int pinDown, int pinPot) {
     _deadband = 5;
     _kp = 7;
     _speed = 0;
+    _externalError = 0;
     
     // Potmeter kalibratie
     _minPot = 30;
@@ -84,7 +85,29 @@ void TiltingActuator::setTargetPosition(int percentage) {
     // Serial.printf("Nieuw doel ingesteld: %d%%\n", percentage);
 }
 
-// 6. Getter voor huidige positie
+// 6. Update met externe error (voor gesynchroniseerde beweging)
+void TiltingActuator::updateWithError(int error) {
+    _currentPos = analogRead(_pinPot);
+    _externalError = error;
+
+    if (abs(error) > _deadband) {
+        _speed = error * _kp;
+                
+        // Limit speed to min/max PWM
+        if (_speed > 0) _speed = constrain(_speed, _minPWM, _maxPWM);
+        else _speed = constrain(_speed, -_maxPWM, -_minPWM);
+
+        setMotorSpeed(_speed);
+
+    } else {
+        setMotorSpeed(0);
+    }
+    
+    // Debug - show external error being used
+    Serial.printf("Pos: %d | ExtError: %d | Speed: %d\n", _currentPos, error, _speed);
+}
+
+// 7. Getter voor huidige positie
 int TiltingActuator::getCurrentPosition() {
     return _currentPos;
 }

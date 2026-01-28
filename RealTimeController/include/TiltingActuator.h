@@ -22,6 +22,7 @@ private:
     int _targetPos;
     int _currentPos;
     int _speed;
+    int _externalError;
 
     // Interne hulpfunctie (hoeft main.cpp niet te zien)
     void setMotorSpeed(int speed);
@@ -35,6 +36,7 @@ public:
 
     // Loop functie (aanroepen in loop())
     void update();
+    void updateWithError(int error); // Update met externe error voor synchronisatie
 
     // Functies om de actuator te besturen
     void setTargetPosition(int percentage); // 0-100%
