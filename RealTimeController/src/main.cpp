@@ -41,6 +41,7 @@ LiftingActuators lift(5, 7, 6, 8, 4, 3, 26, 25);
 const float maxRPM = 4000.0f;  // Max RPM of the motors
 const float deadzone = 0.05f;   // Joystick deadzone
 
+FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16> can2;
 FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_16> can3;
 MotorDriver motorRearRight(11);
 MotorDriver motorFrontRight(12);
@@ -180,9 +181,9 @@ void CanSniff(const CAN_message_t &msg) {
 }
 
 void setup() {
-    bms.init();
-
-
+    can2.begin();
+    can2.setBaudRate(1000000);
+    bms.init(can2);
 
     leds.begin(23, 8); //led_PIN , Num_leds
 
@@ -236,9 +237,9 @@ void loop() {
     if (millis() - lastCanBusBMSRead >= CAN_BUS_BMS_READ_INTERVAL) {
         batteryVoltage = 0;
         for (int i = 0; i < sizeof(BMS_ADDR_LIST); i++) {
-            BMSAdress = BMS_ADDR_LIST[i];
+            uint8_t BMSAdress = BMS_ADDR_LIST[i];
             //Status1 s1;
-            // if (!readStatus1(BMSAdress, s1)){
+            // if (!bms.readStatus1(s1)){
             //     // No response; skip this BMS this cycle
             //     continue;
             // }
@@ -246,8 +247,8 @@ void loop() {
             PackVI p;
             TempData t;
             
-            readPackVI(BMSAdress, p);
-            readTempData(BMSAdress, t); //this doesn't do anything yet
+            bms.readPackVI(p);
+            bms.readTempData(t); //this doesn't do anything yet
 
             batteryVoltage += p.totalVoltage_V;
         }

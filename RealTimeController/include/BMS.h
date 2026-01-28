@@ -37,7 +37,7 @@ class BMS {
 public:
   BMS(uint8_t address);
 
-  bool init(FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_16>& bus);
+  bool init(FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16>& bus);
   
   bool readPackVI(PackVI &o);
   bool readStatus1(Status1 &o);
@@ -49,7 +49,7 @@ public:
 
 private:
   uint8_t _address;
-  FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_16>* _bus;
+  FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16>* _bus;
   
   PackVI _packVI;
   Status1 _status1;
