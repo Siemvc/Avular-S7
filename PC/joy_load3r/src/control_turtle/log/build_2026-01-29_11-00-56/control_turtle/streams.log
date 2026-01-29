@@ -1,0 +1,24 @@
+[0.936s] Invoking command in '/home/teunjacobs/Documents/Avular/Avular-S7/PC/joy_load3r/src/control_turtle/build/control_turtle': DEBUGINFOD_URLS=https://debuginfod.ubuntu.com PYTHONPATH=/home/teunjacobs/Documents/Avular/Avular-S7/PC/joy_load3r/src/control_turtle/build/control_turtle/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/teunjacobs/Documents/Avular/Avular-S7/PC/joy_load3r/src/control_turtle/install/control_turtle/lib/python3.12/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/teunjacobs/Documents/Avular/Avular-S7/PC/joy_load3r/src/control_turtle/build/control_turtle/build --no-deps symlink_data
+[1.297s] running develop
+[1.529s] running egg_info
+[1.529s] creating control_turtle.egg-info
+[1.557s] writing control_turtle.egg-info/PKG-INFO
+[1.558s] writing dependency_links to control_turtle.egg-info/dependency_links.txt
+[1.558s] writing entry points to control_turtle.egg-info/entry_points.txt
+[1.558s] writing requirements to control_turtle.egg-info/requires.txt
+[1.558s] writing top-level names to control_turtle.egg-info/top_level.txt
+[1.558s] writing manifest file 'control_turtle.egg-info/SOURCES.txt'
+[1.604s] reading manifest file 'control_turtle.egg-info/SOURCES.txt'
+[1.605s] writing manifest file 'control_turtle.egg-info/SOURCES.txt'
+[1.630s] running build_ext
+[1.631s] Creating /home/teunjacobs/Documents/Avular/Avular-S7/PC/joy_load3r/src/control_turtle/install/control_turtle/lib/python3.12/site-packages/control-turtle.egg-link (link to .)
+[1.631s] Installing control_Node script to /home/teunjacobs/Documents/Avular/Avular-S7/PC/joy_load3r/src/control_turtle/install/control_turtle/lib/control_turtle
+[1.632s] 
+[1.632s] Installed /home/teunjacobs/Documents/Avular/Avular-S7/PC/joy_load3r/src/control_turtle/build/control_turtle
+[1.632s] running symlink_data
+[1.632s] creating /home/teunjacobs/Documents/Avular/Avular-S7/PC/joy_load3r/src/control_turtle/install/control_turtle/share/ament_index
+[1.633s] creating /home/teunjacobs/Documents/Avular/Avular-S7/PC/joy_load3r/src/control_turtle/install/control_turtle/share/ament_index/resource_index
+[1.633s] creating /home/teunjacobs/Documents/Avular/Avular-S7/PC/joy_load3r/src/control_turtle/install/control_turtle/share/ament_index/resource_index/packages
+[1.633s] symbolically linking /home/teunjacobs/Documents/Avular/Avular-S7/PC/joy_load3r/src/control_turtle/build/control_turtle/resource/control_turtle -> /home/teunjacobs/Documents/Avular/Avular-S7/PC/joy_load3r/src/control_turtle/install/control_turtle/share/ament_index/resource_index/packages
+[1.633s] symbolically linking /home/teunjacobs/Documents/Avular/Avular-S7/PC/joy_load3r/src/control_turtle/build/control_turtle/package.xml -> /home/teunjacobs/Documents/Avular/Avular-S7/PC/joy_load3r/src/control_turtle/install/control_turtle/share/control_turtle
+[1.699s] Invoked command in '/home/teunjacobs/Documents/Avular/Avular-S7/PC/joy_load3r/src/control_turtle/build/control_turtle' returned '0': DEBUGINFOD_URLS=https://debuginfod.ubuntu.com PYTHONPATH=/home/teunjacobs/Documents/Avular/Avular-S7/PC/joy_load3r/src/control_turtle/build/control_turtle/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/teunjacobs/Documents/Avular/Avular-S7/PC/joy_load3r/src/control_turtle/install/control_turtle/lib/python3.12/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/teunjacobs/Documents/Avular/Avular-S7/PC/joy_load3r/src/control_turtle/build/control_turtle/build --no-deps symlink_data

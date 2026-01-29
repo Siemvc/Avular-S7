@@ -11,13 +11,14 @@ private:
 
     int _minPWM, _maxPWM, _deadband;
     float _kp;
+    float _syncKp;
     
-    // Configuratie
+    //Configuration
     const int _strokeLength = 300; 
     int _minPotA, _maxPotA; 
     int _minPotB, _maxPotB; 
     
-    int _targetPosA, _targetPosB;
+    int _targetPosA, _targetPosB; //Targetposition in mm
     int _currentPosA, _currentPosB;
     
     int _speedA, _speedB;
@@ -36,20 +37,15 @@ public:
 
     int getCurrentPosition(); 
     
-    // DEBUG GETTERS (Deze moeten hier staan!)
+    // DEBUG GETTERS 
     int getPosA();    
     int getPosB();
     int getTargetA(); 
     int getTargetB();
     int getSpeedA(); 
     int getSpeedB();
- 
-    
-    // NIEUW: Status opvragen
     bool isManualMode();
-    
-    // Helper voor main.cpp logica
-    int getTargetPositionRaw(); // Geeft doel van A terug
+    int getTargetPositionRaw(); // Gives target of actuator A in raw potentiometer value
 };
 
 #endif

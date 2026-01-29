@@ -42,12 +42,12 @@ class Control(Node):
         L_vertical = msg.axes[1]    #Forward/Backward
         
         # Actuators (Right Stick)
-        R_horizontal = msg.axes[3]  #Tilt
-        R_vertical = msg.axes[4]    #Lift
+        R_horizontal = msg.axes[2]  #Tilt
+        R_vertical = msg.axes[3]    #Lift
 
         # Speed scaling driving
-        Boost_btn = msg.buttons[4]      # L1
-        precision_btn = msg.buttons[5]  # R1
+        Boost_btn = msg.buttons[9]      # L1
+        precision_btn = msg.buttons[10]  # R1
         
         scale = 1.0
         if Boost_btn: scale = 2.0
@@ -65,7 +65,8 @@ class Control(Node):
         #BUTTONS FOR PRESETS
         cross = msg.buttons[0]
         circle = msg.buttons[1]
-        triangle = msg.buttons[2]
+        square = msg.buttons[2]
+        triangle = msg.buttons[3]
 
         # Logic: Send message only on button press (Rising Edge)
         if cross == 1 and self.prev_cross == 0:
@@ -82,11 +83,11 @@ class Control(Node):
         
         #OTHER BUTTONS
         if len(msg.axes) > 6:
-            d_pad_x = msg.axes[6]
+            d_pad_down = msg.axes[12] # D-Pad Down/Up
         else:
-            d_pad_x = 0.0 # Default waarde als de as niet bestaat
+            d_pad_down = 0.0 # Default waarde als de as niet bestaat
             
-        if d_pad_x == -1 and self.prev_d_pad_x == 0.0:
+        if d_pad_down == -1 and self.prev_d_pad_x == 0.0:
             self.lights_on = not self.lights_on
             self.lights_pub.publish(Bool(data=self.lights_on))
 
@@ -98,7 +99,7 @@ class Control(Node):
             self.standby_pub.publish(Bool(data=self.standby_active))
             self.get_logger().info(f"Standby: {self.standby_active}")
 
-        optionButton = msg.buttons[9]  # Options Button
+        optionButton = msg.buttons[6]  # Options Button
         if optionButton == 1 and self.optionButton_prev == 0:
             os.system("shutdown now -h")  # Shutdown command
 
@@ -106,7 +107,7 @@ class Control(Node):
         self.prev_cross = cross
         self.prev_circle = circle
         self.prev_triangle = triangle
-        self.prev_d_pad_x = d_pad_x
+        self.prev_d_pad_x = d_pad_down
         self.prev_standby = standby_btn
         self.optionButton_prev = optionButton
         
