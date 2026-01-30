@@ -42,12 +42,12 @@ class Control(Node):
         L_vertical = msg.axes[1]    #Forward/Backward
         
         # Actuators (Right Stick)
-        R_horizontal = msg.axes[2]  #Tilt
-        R_vertical = msg.axes[3]    #Lift
+        R_horizontal = msg.axes[3]  #Tilt
+        R_vertical = msg.axes[4]    #Lift
 
         # Speed scaling driving
-        Boost_btn = msg.buttons[9]      # L1
-        precision_btn = msg.buttons[10]  # R1
+        Boost_btn = msg.buttons[5]      # L1
+        precision_btn = msg.buttons[6]  # R1
         
         scale = 1.0
         if Boost_btn: scale = 2.0
@@ -65,8 +65,8 @@ class Control(Node):
         #BUTTONS FOR PRESETS
         cross = msg.buttons[0]
         circle = msg.buttons[1]
-        square = msg.buttons[2]
-        triangle = msg.buttons[3]
+        square = msg.buttons[3]
+        triangle = msg.buttons[2]
 
         # Logic: Send message only on button press (Rising Edge)
         if cross == 1 and self.prev_cross == 0:
@@ -83,7 +83,7 @@ class Control(Node):
         
         #OTHER BUTTONS
         if len(msg.axes) > 6:
-            d_pad_down = msg.axes[12] # D-Pad Down/Up
+            d_pad_down = msg.axes[6] # D-Pad Down/Up
         else:
             d_pad_down = 0.0 # Default waarde als de as niet bestaat
             
