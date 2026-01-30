@@ -78,6 +78,13 @@ void PublishDebug(const char* text) {
   rcl_publish(&debug_pub, &msg_debug, NULL);
 }
 
+// Check if any actuator or motor is moving
+bool isMoving() {
+  return motorFrontLeft.getSpeed() != 0 || motorRearLeft.getSpeed() != 0 ||
+         motorFrontRight.getSpeed() != 0 || motorRearRight.getSpeed() != 0 ||
+         lift.getSpeedA() != 0 || lift.getSpeedB() != 0 || tilt.getLastSpeed() != 0;
+}
+
 void sendGlobalHeartbeat() {
     CAN_message_t msg;
     msg.id = 0x2052C80; // Heartbeat Base ID 
@@ -254,7 +261,14 @@ void loop() {
         }
         lastCanBusBMSRead = millis();
     }
-
+  //FIXME: Re-enable moving LED state when initial led testing of setup is done
+  // // Update LED state based on movement
+  // if (isMoving()) {
+  //   leds.setState(Driving);
+  // } else {
+  //   leds.setState(Operational);
+  // }
+  // LED updates
   leds.update();
   // Actuator updates
   tilt.update();
