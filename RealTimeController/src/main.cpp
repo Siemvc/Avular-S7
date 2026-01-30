@@ -200,20 +200,14 @@ void setup() {
   unsigned long timeLedStart = millis();
   leds.setState(Startup);
 
-  while(millis() - timeLedStart < 3000){
+  while((millis() - timeLedStart) < 3000){
     leds.update();
     delay(1);
   }
  //keep in mind safety delay of 2000 removed due to startup led show already taking up 3000
   allocator = rcl_get_default_allocator();
 
-  while (rclc_support_init(&support, 0, NULL, &allocator) != RCL_RET_OK) {
-      leds.setState(Linux_boot_ERR);
-      leds.update();
-      delay(10);
-  }
-  leds.setState(Standby);
-  leds.update();
+
   
   rclc_support_init(&support, 0, NULL, &allocator);
   rclc_node_init_default(&node, "teensy_loader_node", "", &support);
@@ -230,6 +224,14 @@ void setup() {
   rclc_executor_init(&executor, &support.context, 5, &allocator); 
   rclc_executor_add_subscription(&executor, &sub_actuator, &msg_twist, &CallbackActuator, ON_NEW_DATA);
   rclc_executor_add_subscription(&executor, &sub_buttons, &msg_buttons, &CallbackButtons, ON_NEW_DATA);
+
+    while (rclc_support_init(&support, 0, NULL, &allocator) != RCL_RET_OK) {
+      leds.setState(Linux_boot_ERR);
+      leds.update();
+      delay(10);
+  }
+  leds.setState(Standby);
+  leds.update();
 }
 
 void loop() {
