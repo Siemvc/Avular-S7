@@ -66,7 +66,7 @@ geometry_msgs__msg__Twist msg_twist;
 std_msgs__msg__Int32 msg_buttons;
 std_msgs__msg__String msg_debug;
 char debugBuffer[255]; // Buffer for debug string
-// NIEUW: Variabelen om input te onthouden voor debug
+// Debug variables
 float debug_joy_lift = 0.0;
 int debug_last_preset = -1;
 
@@ -87,11 +87,11 @@ void sendGlobalHeartbeat() {
     can3.write(msg);
 }
 
-// CALLBACK: Joystick
+//Callback joysticks
 void CallbackActuator(const void * msgin) {
   const geometry_msgs__msg__Twist * msg = (const geometry_msgs__msg__Twist *)msgin;
   debug_joy_lift = msg->angular.x;
-// ____________Driving (Tank/Arcade Drive)____________
+//Driving
   // Linear Y = Gas (Forward/Backward)
   // Angular Z = Steering (Left/Right)
    
@@ -125,11 +125,9 @@ void CallbackActuator(const void * msgin) {
   motorFrontRight.setSpeed(rpmRight);
   motorRearRight.setSpeed(rpmRight);
 
-
-  //____________Actuators____________
+//Linear actuators
   //Only switch to Manual Mode if you MOVE the stick.
-  //Lifting Actuator
- // LIFT
+  // LIFT
   if (abs(msg->angular.x) > 0.1) {
       lift.setManualSpeed(msg->angular.x);
   } 
@@ -146,7 +144,7 @@ void CallbackActuator(const void * msgin) {
   }
 }
 
-//____________CALLBACK: Button Presets____________
+//Callback buttons
 void CallbackButtons(const void * msgin) {
   const std_msgs__msg__Int32 * msg = (const std_msgs__msg__Int32 *)msgin;
   debug_last_preset = msg->data;
@@ -162,7 +160,7 @@ void CallbackButtons(const void * msgin) {
       tilt.setTargetPosition(100); //Distance in mm
       PublishDebug("Preset: MODE NAME");
   }
-  // 2 = Driehoekje (Dump Hoog)
+  // 2 = Triangle (Dump Hoog)
   else if (msg->data == 2) { 
       lift.setTargetPosition(90);  //Distance in mm
       tilt.setTargetPosition(200); //Distance in mm
@@ -170,7 +168,7 @@ void CallbackButtons(const void * msgin) {
   }
 }
 
-
+// CAN Sniffer for all motor drivers
 void CanSniff(const CAN_message_t &msg) {
     motorFrontLeft.parseCanMessage(msg);
     motorRearLeft.parseCanMessage(msg);
@@ -179,12 +177,13 @@ void CanSniff(const CAN_message_t &msg) {
 }
 
 void setup() {
-    can2.begin();
-    can2.setBaudRate(1000000);
-    bms[0].init(can2);
-    bms[1].init(can2);
+  pinMode(LED_BUILTIN, OUTPUT);
+  can2.begin();
+  can2.setBaudRate(1000000);
+  bms[0].init(can2);
+  bms[1].init(can2);
 
-    leds.begin(23, 8); //led_PIN , Num_leds
+  leds.begin(23, 8); //led_PIN , Num_leds
 
   analogReadResolution(10); 
   
@@ -248,7 +247,7 @@ void loop() {
             TempData t;
             
             bms[i].readPackVI(p);
-            bms[i].readTempData(t); //this doesn't do anything yet
+            bms[i].readTempData(t); //this doesn't do anything yet -Siem v C. 
 
             batteryVoltage += p.totalVoltage_V;
         }
@@ -269,7 +268,7 @@ void loop() {
   motorFrontRight.update(can3);
   motorRearRight.update(can3);
 
-
+// Send global heartbeat every 20ms to all nodes
   if (heartBeatTimer > 20) {
       heartBeatTimer = 0;
       sendGlobalHeartbeat();
