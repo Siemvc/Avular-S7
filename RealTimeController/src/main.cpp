@@ -236,6 +236,7 @@ void setup() {
 
   leds.setState(Standby);
   leds.update();
+  delay(1000); //use delay to show standby state during testing can be removed later
 }
 
 void loop() {
