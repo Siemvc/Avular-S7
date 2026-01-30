@@ -78,6 +78,13 @@ void PublishDebug(const char* text) {
   rcl_publish(&debug_pub, &msg_debug, NULL);
 }
 
+// Check if any actuator or motor is moving
+bool isMoving() {
+  return motorFrontLeft.getSpeed() != 0 || motorRearLeft.getSpeed() != 0 ||
+         motorFrontRight.getSpeed() != 0 || motorRearRight.getSpeed() != 0 ||
+         lift.getSpeedA() != 0 || lift.getSpeedB() != 0 || tilt.getLastSpeed() != 0;
+}
+
 void sendGlobalHeartbeat() {
     CAN_message_t msg;
     msg.id = 0x2052C80; // Heartbeat Base ID 
@@ -199,24 +206,19 @@ void setup() {
   unsigned long timeLedStart = millis();
   leds.setState(Startup);
 
-//Code blijft hier ergens in de setup hangen, Moet gefixed worden!
-  //while(millis() - timeLedStart < 3000){
-  //  leds.update();
-  //  delay(1);
-  //}
+  while((millis() - timeLedStart) < 3000){
+    leds.update();
+    delay(1);
+  }
  //keep in mind safety delay of 2000 removed due to startup led show already taking up 3000
   allocator = rcl_get_default_allocator();
 
-//Code blijft hier ergens in de setup hangen, Moet gefixed worden! De while loop hieronder is het probleem!
-  //while (rclc_support_init(&support, 0, NULL, &allocator) != RCL_RET_OK) {
-  //    leds.setState(Linux_boot_ERR);
-  //    leds.update();
-  //    delay(10);
-  //}
-  //leds.setState(Standby);
-  //leds.update();
+  while (rclc_support_init(&support, 0, NULL, &allocator) != RCL_RET_OK) {
+    leds.setState(Linux_boot_ERR);
+    leds.update();
+    delay(10);
+  }
   
-  rclc_support_init(&support, 0, NULL, &allocator);
   rclc_node_init_default(&node, "teensy_loader_node", "", &support);
 
   //Publishers
@@ -231,6 +233,10 @@ void setup() {
   rclc_executor_init(&executor, &support.context, 5, &allocator); 
   rclc_executor_add_subscription(&executor, &sub_actuator, &msg_twist, &CallbackActuator, ON_NEW_DATA);
   rclc_executor_add_subscription(&executor, &sub_buttons, &msg_buttons, &CallbackButtons, ON_NEW_DATA);
+
+  leds.setState(Standby);
+  leds.update();
+  delay(1000); //use delay to show standby state during testing can be removed later
 }
 
 void loop() {
@@ -256,7 +262,14 @@ void loop() {
         }
         lastCanBusBMSRead = millis();
     }
-
+  //FIXME: Re-enable moving LED state when initial led testing of setup is done
+  // // Update LED state based on movement
+  // if (isMoving()) {
+  //   leds.setState(Driving);
+  // } else {
+  //   leds.setState(Operational);
+  // }
+  // LED updates
   leds.update();
   // Actuator updates
   tilt.update();

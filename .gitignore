@@ -5,3 +5,6 @@ PC/joy_load3r/build/
 PC/joy_load3r/install/
 RealtimeController/log/
 PC/joy_load3r/src/control_turtle/control_turtle/__pycache__/__init__.cpython-312.pyc
+PC/joy_load3r/src/control_turtle/build
+PC/joy_load3r/src/control_turtle/install
+PC/joy_load3r/src/control_turtle/log
