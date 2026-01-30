@@ -206,9 +206,12 @@ void setup() {
  //keep in mind safety delay of 2000 removed due to startup led show already taking up 3000
   allocator = rcl_get_default_allocator();
 
-
+  while (rclc_support_init(&support, 0, NULL, &allocator) != RCL_RET_OK) {
+    leds.setState(Linux_boot_ERR);
+    leds.update();
+    delay(10);
+  }
   
-  rclc_support_init(&support, 0, NULL, &allocator);
   rclc_node_init_default(&node, "teensy_loader_node", "", &support);
 
   //Publishers
@@ -224,11 +227,6 @@ void setup() {
   rclc_executor_add_subscription(&executor, &sub_actuator, &msg_twist, &CallbackActuator, ON_NEW_DATA);
   rclc_executor_add_subscription(&executor, &sub_buttons, &msg_buttons, &CallbackButtons, ON_NEW_DATA);
 
-    while (rclc_support_init(&support, 0, NULL, &allocator) != RCL_RET_OK) {
-      leds.setState(Linux_boot_ERR);
-      leds.update();
-      delay(10);
-  }
   leds.setState(Standby);
   leds.update();
 }
