@@ -32,8 +32,8 @@ elapsedMillis debugTimer;
 elapsedMillis heartBeatTimer; // Timer voor de globale CAN heartbeat
 
 // Pin Configuratie Actuators
-TiltingActuator tilt(28, 29, 27); 
-LiftingActuators lift(5, 7, 6, 8, 4, 3, 26, 25);
+TiltingActuator tilt(28, 29, 12, 27); //In1, IN2, PWM, Potmeter
+LiftingActuators lift(5, 7, 6, 8, 4, 3, 26, 25);//IN1A, IN1B, IN2A, IN2B, ENA, ENB, PotA, PotB
 
 // Driving Configuration
 const float maxRPM = 4000.0f;  // Max RPM of the motors

@@ -6,20 +6,20 @@ LiftingActuators::LiftingActuators(int pinIN1A, int pinIN1B, int pinIN2A, int pi
     _pinPotA = pinPotA; _pinPotB = pinPotB;
 
     _minPWM = 60; 
-    _maxPWM = 250; //Do not make this higher than 250, to avoid overloading the motor driver! (See datasheet)
-    _deadband = 10; 
+    _maxPWM = 150; //Do not make this higher than 250, to avoid overloading the motor driver! (See datasheet)
+    _deadband = 7; 
 
     _kp = 8.0; 
-    _syncKp = 10.0; //Correction factor for synchronization
+    _syncKp = 3.0; //Correction factor for synchronization
     
     //Left (A)
-    _minPotA = 985; // 0mm
-    _maxPotA = 385; // 300mm
+    _minPotA = 905; // 0mm      915
+    _maxPotA = 620; // 300mm    
     
     //Right (B)
-    _minPotB = 946; // 0mm
-    _maxPotB = 403; // 300mm
-
+    _minPotB = 905; // 0mm
+    _maxPotB = 620; // 300mm    
+ 
     _targetPosA = -1;
     _targetPosB = -1;
     _manualMode = true;
@@ -53,8 +53,12 @@ void LiftingActuators::setMotorASpeed(int speed) {
 
 void LiftingActuators::setMotorBSpeed(int speed) {
     // Soft limits B
-    if (_currentPosB > _minPotB && speed < 0) speed = 0;
-    if (_currentPosB < _maxPotB && speed > 0) speed = 0;
+    if (_currentPosB > _minPotB && speed > 0) speed = 0;
+    if (_currentPosB < _maxPotB && speed < 0) speed = 0;
+
+    if (_currentPosA > _minPotA && speed > 0) speed = 0;
+    if (_currentPosA < _maxPotA && speed < 0) speed = 0;
+
 
     _speedB = speed;
     if (speed == 0) {

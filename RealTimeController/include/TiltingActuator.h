@@ -5,31 +5,30 @@
 
 class TiltingActuator {
 private:
-    int _pinIN1, _pinIN2, _pinPot;
-    int _minPWM, _maxPWM, _deadband;
-    float _kp;
+    int _pinIN1, _pinIN2, _pinPWM, _pinPot;
+    int _minPWM, _maxPWM;
     int _minPot, _maxPot;
     
     int _targetPos;
     int _currentPos;
     int _speed;
-    
-    
+    int _lastSpeed;
+    //PID controller parameters
+    int _deadband;
+    float _kp;
     bool _manualMode; 
 
     void setMotorSpeed(int speed);
 
 public:
-    TiltingActuator(int pinIN1, int pinIN2, int pinPot);
+    TiltingActuator(int pinIN1, int pinIN2, int pinPWM, int pinPot);
     void begin();
-    
     // Regular update call for position control and min max distance checking
     void update(); 
     
     //Auto: Go to position with P-controller
-    void setTargetPosition(int percentage); 
-    
-    // Manual: Direct speed (-1.0 to 1.0)
+    void setTargetPosition(int mm); 
+     // Manual: Direct speed (-1.0 to 1.0)
     void setManualSpeed(float input); 
 
     // Getters for debugging
