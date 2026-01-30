@@ -290,6 +290,13 @@ void loop() {
   can3.events();  // ROS
   rclc_executor_spin_some(&executor, RCL_MS_TO_NS(10));
 
+  float accel = 4000.0f; 
+  
+  motorFrontLeft.setAcceleration(accel);
+  motorRearLeft.setAcceleration(accel);
+  motorFrontRight.setAcceleration(accel);
+  motorRearRight.setAcceleration(accel);
+  
   // Debug
   if (debugTimer > 100) {
     debugTimer = 0;
