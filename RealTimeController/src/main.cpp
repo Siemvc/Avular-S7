@@ -17,8 +17,9 @@
 #include "BMS.h"
 #include <DHT.h>
 
-#define DHTPIN 16     
+#define DHTPIN 14    
 #define DHTTYPE DHT11
+DHT dht(DHTPIN, DHTTYPE);
 
 //bms
 uint8_t BMS_ADDR_LIST[2] = { 0x01, 0x02 };
@@ -167,7 +168,7 @@ void CallbackActuator(const void * msgin) {
     } else {
       PublishDebug("Standby: OFF");
     }
-  }
+  
 //Driving
   // Linear Y = Gas (Forward/Backward)
   // Angular Z = Steering (Left/Right)
@@ -238,7 +239,7 @@ void CallbackButtons(const void * msgin) {
     } else {
       PublishDebug("Standby: OFF");
     }
-  }
+  
   const std_msgs__msg__Int32 * msg = (const std_msgs__msg__Int32 *)msgin;
   debug_last_preset = msg->data;
   // 0 = Cross [Enter positon name here]
@@ -442,7 +443,7 @@ void loop() {
       
       // Hier plakken we de temperatuur in de string. 
       // %.1f betekent: float met 1 decimaal achter de komma.
-      sprintf(debug_buffer, "Status: OK | Temp: %.1f C | V: %.1f", currentTemp, voltage); 
+      sprintf(debug_buffer, "Status: OK | Temp: %.1f C | V: %.1f", currentTemp, batteryVoltage); 
       
       // Kopieer naar het ROS bericht
       // (Pas msg_debug en debug_pub aan naar hoe ze in jouw code heten!)
@@ -450,7 +451,7 @@ void loop() {
       msg_debug.data.size = strlen(debug_buffer);
       msg_debug.data.capacity = 100;
       
-      rcl_publish(&publisher_debug, &msg_debug, NULL);
+      rcl_publish(&debug_pub, &msg_debug, NULL);
       
       lastDebugTime = millis();
   }
