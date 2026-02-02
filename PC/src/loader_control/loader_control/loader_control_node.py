@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+from time import time
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Joy
@@ -16,7 +17,7 @@ class Control(Node):
         self.lights_pub = self.create_publisher(Bool, "/lights_toggle", 10)
         self.standby_pub = self.create_publisher(Bool, "/standby", 10)     
         self.buttons_pub = self.create_publisher(Int32, "/actuator_buttons", 10)
-        
+        self.system_pub = self.create_publisher(Int32, '/system_command', 10)
         self.subscription = self.create_subscription(Joy, '/joy', self.listener_callback, 10)
 
         # State tracking voor edge-detection
@@ -91,17 +92,28 @@ class Control(Node):
             self.lights_on = not self.lights_on
             self.lights_pub.publish(Bool(data=self.lights_on))
 
-        standby_btn = msg.buttons[10] # PS Button
+        standbyButton = msg.buttons[10] # PS Button
         
         #Standby toggle logic
-        if standby_btn == 1 and self.prev_standby == 0:
+        if standbyButton == 1 and self.prev_standby == 0:
             self.standby_active = not self.standby_active
             self.standby_pub.publish(Bool(data=self.standby_active))
             self.get_logger().info(f"Standby: {self.standby_active}")
 
-        optionButton = msg.buttons[6]  # Options Button
-        if optionButton == 1 and self.optionButton_prev == 0:
-            os.system("shutdown now -h")  # Shutdown command
+        #Shutdown logic
+        shareButton = msg.buttons[9]  # Share button logic for shutdown
+        optionButton = msg.buttons[8] 
+        if shareButton == 1 and optionButton == 1:
+            self.get_logger().warn("SHUTDOWN SEQUENCE INITIATED...")
+        
+            #Send shutdown signal to teensy
+            sys_msg = Int32()
+            sys_msg.data = 99
+            self.system_pub.publish(sys_msg)
+            #Wait a moment to ensure message is sent
+            time.sleep(0.5)
+            #Execute shutdown command
+            os.system("shutdown now -h")
 
         #Update previous states
         self.prev_cross = cross

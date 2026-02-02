@@ -64,6 +64,7 @@ rcl_publisher_t debug_pub;
 rcl_publisher_t battery_voltage_pub;
 rcl_subscription_t sub_actuator; 
 rcl_subscription_t sub_buttons;
+
 // Timers
 rcl_timer_t battery_voltage_timer;
 
@@ -72,6 +73,9 @@ geometry_msgs__msg__Twist msg_twist;
 std_msgs__msg__Int32 msg_buttons;
 std_msgs__msg__String msg_debug;
 std_msgs__msg__Float32 msg_battery_voltage;
+rcl_subscription_t sub_system;
+std_msgs__msg__Int32 msg_system;
+
 char debugBuffer[255]; // Buffer for debug string
 // Debug variables
 float debug_joy_lift = 0.0;
@@ -83,6 +87,25 @@ void PublishDebug(const char* text) {
   msg_debug.data.size = strlen(text);
   msg_debug.data.capacity = strlen(text) + 1;
   rcl_publish(&debug_pub, &msg_debug, NULL);
+}
+
+void CallbackSystem(const void * msgin) {
+  const std_msgs__msg__Int32 * msg = (const std_msgs__msg__Int32 *)msgin;
+  
+  // Code 99 = SHUTDOWN
+  if (msg->data == 99) {
+      leds.setState(Shutdown); // Deze staat moet je nog maken in LedManager!
+      
+      // Optioneel: Zet motoren veilig stil
+      motorFrontLeft.setSpeed(0);
+      motorRearLeft.setSpeed(0);
+      motorFrontRight.setSpeed(0);
+      motorRearRight.setSpeed(0);
+      
+      // Stop actuatoren
+      lift.setManualSpeed(0);
+      tilt.setManualSpeed(0);
+  }
 }
 
 void BatteryVoltageTimerCallback(rcl_timer_t * timer, int64_t last_call_time) {
@@ -247,11 +270,12 @@ void setup() {
   
   //Subscribers
   rclc_subscription_init_default(&sub_actuator, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist), "/actuator_pub");
-  
-  //Buttons Subscriber
   rclc_subscription_init_default(&sub_buttons, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32), "/actuator_buttons");
+  rclc_subscription_init_default(&sub_system, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32), "/system_command");
+
   //Messages
   rclc_executor_init(&executor, &support.context, 6, &allocator); 
+  rclc_executor_add_subscription(&executor, &sub_system, &msg_system, &CallbackSystem, ON_NEW_DATA);
   rclc_executor_add_subscription(&executor, &sub_actuator, &msg_twist, &CallbackActuator, ON_NEW_DATA);
   rclc_executor_add_subscription(&executor, &sub_buttons, &msg_buttons, &CallbackButtons, ON_NEW_DATA);
 
