@@ -373,12 +373,12 @@ void loop() {
           lastCanBusBMSRead = millis();
     }
   //FIXME: Re-enable moving LED state when initial led testing of setup is done
-  // // Update LED state based on movement
-  // if (isMoving()) {
-  //   leds.setState(Driving);
-  // } else {
-  //   leds.setState(Operational);
-  // }
+  // Update LED state based on movement
+  if (isMoving()) {
+    leds.setState(Driving);
+  } else {
+    leds.setState(Operational);
+  }
   // LED updates
   leds.update();
   // Actuator updates
