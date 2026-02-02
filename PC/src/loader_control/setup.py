@@ -17,7 +17,7 @@ setup(
         
         # HIER ZIT DE TRUC VOOR JE LAUNCH FILES:
         # We kopiëren alles uit de map 'Launch' naar de installatie map 'share/LoaderControl/launch'
-        (os.path.join('share', package_name, 'launch'), glob('Launch/*.py')),
+        (os.path.join('share', package_name, 'launch'), glob('launch/*.py')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
