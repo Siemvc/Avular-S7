@@ -22,6 +22,8 @@ BMS bms[2] = { BMS(BMS_ADDR_LIST[0]), BMS(BMS_ADDR_LIST[1]) };
 
 float batteryVoltage = 0.0f;
 const float batteryLowVoltageThreshold = 19.0; // Voltage threshold for low battery indication
+const float batteryCriticalVoltageThreshold = 18.35; // Voltage threshold for critical battery indication
+const float batteryDeadVoltageThreshold = 18.1; // Voltage threshold for dead battery indication
 
 const float overheatTemperatureThreshold = 60.0; // Temperature threshold for overheating indication
 
@@ -64,7 +66,7 @@ rcl_publisher_t debug_pub;
 rcl_publisher_t battery_voltage_pub;
 rcl_subscription_t sub_actuator; 
 rcl_subscription_t sub_buttons;
-
+rcl_subscription_t sub_standby;
 // Timers
 rcl_timer_t battery_voltage_timer;
 
@@ -75,6 +77,8 @@ std_msgs__msg__String msg_debug;
 std_msgs__msg__Float32 msg_battery_voltage;
 rcl_subscription_t sub_system;
 std_msgs__msg__Int32 msg_system;
+std_msgs__msg__Bool msg_standby;
+bool standby_active = true;
 
 char debugBuffer[255]; // Buffer for debug string
 // Debug variables
@@ -141,6 +145,18 @@ void sendGlobalHeartbeat() {
 void CallbackActuator(const void * msgin) {
   const geometry_msgs__msg__Twist * msg = (const geometry_msgs__msg__Twist *)msgin;
   debug_joy_lift = msg->angular.x;
+  if (standby_active) {
+      // If in standby, ignore actuator commands
+      motorFrontLeft.setSpeed(0);
+      motorRearLeft.setSpeed(0);
+      motorFrontRight.setSpeed(0);
+      motorRearRight.setSpeed(0);
+      lift.setManualSpeed(0);
+      tilt.setManualSpeed(0);
+      leds.setState(Standby);
+      leds.update();
+      return;
+  }
 //Driving
   // Linear Y = Gas (Forward/Backward)
   // Angular Z = Steering (Left/Right)
@@ -196,6 +212,18 @@ void CallbackActuator(const void * msgin) {
 
 //Callback buttons
 void CallbackButtons(const void * msgin) {
+    if (standby_active) {
+      // If in standby, ignore actuator commands
+      motorFrontLeft.setSpeed(0);
+      motorRearLeft.setSpeed(0);
+      motorFrontRight.setSpeed(0);
+      motorRearRight.setSpeed(0);
+      lift.setManualSpeed(0);
+      tilt.setManualSpeed(0);
+      leds.setState(Standby);
+      leds.update();
+      return;
+  }
   const std_msgs__msg__Int32 * msg = (const std_msgs__msg__Int32 *)msgin;
   debug_last_preset = msg->data;
   // 0 = Cross [Enter positon name here]
@@ -224,6 +252,24 @@ void CanSniff(const CAN_message_t &msg) {
     motorRearLeft.parseCanMessage(msg);
     motorFrontRight.parseCanMessage(msg);
     motorRearRight.parseCanMessage(msg);
+}
+//Callback standby
+void CallbackStandby(const void * msgin) {
+  const std_msgs__msg__Bool * msg = (const std_msgs__msg__Bool *)msgin;
+  standby_active = msg->data;
+  
+  if (standby_active) {
+    // Stop all motors and actuators immediately
+    motorFrontLeft.setSpeed(0);
+    motorRearLeft.setSpeed(0);
+    motorFrontRight.setSpeed(0);
+    motorRearRight.setSpeed(0);
+    lift.setManualSpeed(0);
+    tilt.setManualSpeed(0);
+    leds.setState(Standby);
+    leds.update();
+    PublishDebug("Standby: ON");
+  }
 }
 
 void setup() {
@@ -259,7 +305,7 @@ void setup() {
   while (rclc_support_init(&support, 0, NULL, &allocator) != RCL_RET_OK) {
     leds.setState(Linux_boot_ERR);
     leds.update();
-    delay(10);
+    delay(1);
   }
   
   rclc_node_init_default(&node, "teensy_loader_node", "", &support);
@@ -271,13 +317,17 @@ void setup() {
   //Subscribers
   rclc_subscription_init_default(&sub_actuator, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist), "/actuator_pub");
   rclc_subscription_init_default(&sub_buttons, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32), "/actuator_buttons");
-  rclc_subscription_init_default(&sub_system, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32), "/system_command");
+    rclc_subscription_init_default(&sub_standby, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Bool), "/standby");
+    rclc_subscription_init_default(&sub_system, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32), "/system_command");
 
   //Messages
   rclc_executor_init(&executor, &support.context, 6, &allocator); 
-  rclc_executor_add_subscription(&executor, &sub_system, &msg_system, &CallbackSystem, ON_NEW_DATA);
   rclc_executor_add_subscription(&executor, &sub_actuator, &msg_twist, &CallbackActuator, ON_NEW_DATA);
   rclc_executor_add_subscription(&executor, &sub_buttons, &msg_buttons, &CallbackButtons, ON_NEW_DATA);
+  rclc_executor_add_subscription(&executor, &sub_standby, &msg_standby, [](const void * msgin) {
+      const std_msgs__msg__Bool * msg = (const std_msgs__msg__Bool *)msgin;
+      standby_active = msg->data;
+  }, ON_NEW_DATA);
 
   rclc_timer_init_default(
     &battery_voltage_timer,
@@ -313,22 +363,13 @@ void loop() {
             batteryVoltage += p.totalVoltage_V / 2.0f; // Average voltage from both BMS units
         }
 
-        // switch (batteryVoltage){
-        //   case batteryLowVoltageThreshold - 0.7 ... batteryLowVoltageThreshold + 0.2:
-        //     leds.setState(Low_power);
-        //     break;
-
-        //   case batteryLowVoltageThreshold - 0.85 ... batteryLowVoltageThreshold - 0.7:
-        //     leds.setState(battery_empty);
-        //     break;
-
-        //   case .. batteryLowVoltageThreshold - 0.85:
-        //     leds.setState(battery_dead);
-        //     break;
-
-        //   default:
-        //     break; // This should do nothing
-        //   } 
+         if (batteryVoltage >= batteryCriticalVoltageThreshold && batteryVoltage <= batteryLowVoltageThreshold) {
+             leds.setState(Low_power);
+         } else if (batteryVoltage >= batteryDeadVoltageThreshold && batteryVoltage < batteryCriticalVoltageThreshold) {
+             leds.setState(battery_empty);
+         } else if (batteryVoltage < batteryDeadVoltageThreshold) {
+             leds.setState(battery_dead);
+         } 
           lastCanBusBMSRead = millis();
     }
   //FIXME: Re-enable moving LED state when initial led testing of setup is done
