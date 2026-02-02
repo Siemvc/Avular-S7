@@ -25,6 +25,7 @@ setup(
     entry_points={
         'console_scripts': [
         'control_Node = control_turtle.loader_control_node:main',
+		'battery_voltage_node = control_turtle.battery_voltage_node:main',
 	],
     },
 )

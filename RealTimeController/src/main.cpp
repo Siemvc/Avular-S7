@@ -7,6 +7,7 @@
 #include <std_msgs/msg/bool.h>
 #include <std_msgs/msg/int32.h>
 #include <std_msgs/msg/string.h>
+#include <std_msgs/msg/float32.h>
 #include <FlexCAN_T4.h>
 
 #include "MotorDriver.h"      
@@ -58,13 +59,17 @@ rcl_allocator_t allocator;
 rclc_executor_t executor;
 // Publishers & Subscribers
 rcl_publisher_t debug_pub;
+rcl_publisher_t battery_voltage_pub;
 rcl_subscription_t sub_actuator; 
 rcl_subscription_t sub_buttons;
+// Timers
+rcl_timer_t battery_voltage_timer;
 
 // Messages
 geometry_msgs__msg__Twist msg_twist;
 std_msgs__msg__Int32 msg_buttons;
 std_msgs__msg__String msg_debug;
+std_msgs__msg__Float32 msg_battery_voltage;
 char debugBuffer[255]; // Buffer for debug string
 // Debug variables
 float debug_joy_lift = 0.0;
@@ -76,6 +81,16 @@ void PublishDebug(const char* text) {
   msg_debug.data.size = strlen(text);
   msg_debug.data.capacity = strlen(text) + 1;
   rcl_publish(&debug_pub, &msg_debug, NULL);
+}
+
+void BatteryVoltageTimerCallback(rcl_timer_t * timer, int64_t last_call_time) {
+  (void)last_call_time;
+  if (timer == NULL) {
+    return;
+  }
+
+  msg_battery_voltage.data = batteryVoltage;
+  rcl_publish(&battery_voltage_pub, &msg_battery_voltage, NULL);
 }
 
 // Check if any actuator or motor is moving
@@ -226,6 +241,7 @@ void setup() {
 
   //Publishers
   rclc_publisher_init_default(&debug_pub, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String), "/teensy_debug");
+  rclc_publisher_init_default(&battery_voltage_pub, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32), "/battery_voltage");
   
   //Subscribers
   rclc_subscription_init_default(&sub_actuator, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist), "/actuator_pub");
@@ -233,9 +249,16 @@ void setup() {
   //Buttons Subscriber
   rclc_subscription_init_default(&sub_buttons, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32), "/actuator_buttons");
   //Messages
-  rclc_executor_init(&executor, &support.context, 5, &allocator); 
+  rclc_executor_init(&executor, &support.context, 6, &allocator); 
   rclc_executor_add_subscription(&executor, &sub_actuator, &msg_twist, &CallbackActuator, ON_NEW_DATA);
   rclc_executor_add_subscription(&executor, &sub_buttons, &msg_buttons, &CallbackButtons, ON_NEW_DATA);
+
+  rclc_timer_init_default(
+    &battery_voltage_timer,
+    &support,
+    RCL_MS_TO_NS(60000),
+    BatteryVoltageTimerCallback);
+  rclc_executor_add_timer(&executor, &battery_voltage_timer);
 
   leds.setState(Standby);
   leds.update();
@@ -258,11 +281,26 @@ void loop() {
             bms[i].readPackVI(p);
             bms[i].readTempData(t); //this doesn't do anything yet -Siem v C. 
 
-            batteryVoltage += p.totalVoltage_V;
+            batteryVoltage += p.totalVoltage_V / 2;
         }
-        if ((batteryVoltage / 2) < batteryLowVoltageThreshold) {
-            leds.setState(Low_power);
-        }
+
+        switch (batteryVoltage)
+        {
+        case batteryLowVoltageThreshold - 0.7 ... batteryLowVoltageThreshold + 0.2:
+          leds.setState(Low_power);
+          break;
+
+        case batteryLowVoltageThreshold - 0.85 ... batteryLowVoltageThreshold - 0.7:
+          leds.setState(battery_empty);
+          break;
+
+        case .. batteryLowVoltageThreshold - 0.85:
+          leds.setState(battery_dead);
+          break;
+
+        default:
+          break; // This should do nothing
+        } 
         lastCanBusBMSRead = millis();
     }
   //FIXME: Re-enable moving LED state when initial led testing of setup is done

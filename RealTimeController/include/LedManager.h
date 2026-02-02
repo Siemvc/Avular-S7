@@ -11,6 +11,8 @@ enum avuloaderState {
   Driving,
   E_Brake,
   Low_power,
+  battery_empty,
+  battery_dead,
   ERR,
   Linux_boot_ERR,
   IDLE

@@ -30,6 +30,8 @@ void LedManager::handleLeds() {
         case Driving:        solidEverywhere(CRGB::Green2); break;
         case E_Brake:        solidEverywhere(CRGB::Red2); break;
         case Low_power:      solidEverywhere(CRGB::Yellow1); break;
+        case battery_empty:  effectBlinking(CRGB::Red1, CRGB::Orange, 500, 500, _numLeds / 2); break;
+        case battery_dead:   effectBlinking(CRGB::Red1, CRGB::Black, 200, 800, _numLeds / 2); break;
         case ERR:            effectBreathing(CRGB::Yellow1); break;
         case Linux_boot_ERR: effectFlash(CRGB::Yellow1, 200); break;
         default:             effectBreathing(CRGB::Amethyst); break;
@@ -51,4 +53,17 @@ void LedManager::effectFlash(CRGB color, int interval) {
 
 void LedManager::solidEverywhere(CRGB color) {
     fill_solid(_leds, _numLeds, color);
+}
+
+void LedManager::effectBlinking(CRGB color1, CRGB color2, int onDuration, int offDuration, int numLeds) {
+    unsigned long cycleTime = onDuration + offDuration;
+    unsigned long timeInCycle = millis() % cycleTime;
+
+    bool firstPhase = (timeInCycle < onDuration);
+
+    CRGB firstHalf = firstPhase ? color1 : color2;
+    fill_solid(&_leds[0], numLeds, firstHalf);
+    
+    CRGB secondHalf = firstPhase ? color2 : color1;
+    fill_solid(&_leds[numLeds], numLeds, secondHalf);
 }
