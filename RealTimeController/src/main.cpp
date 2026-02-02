@@ -15,6 +15,10 @@
 #include "LiftingActuators.h" 
 #include "LedManager.h"
 #include "BMS.h"
+#include <DHT.h>
+
+#define DHTPIN 16     
+#define DHTTYPE DHT11
 
 //bms
 uint8_t BMS_ADDR_LIST[2] = { 0x01, 0x02 };
@@ -30,6 +34,9 @@ const float overheatTemperatureThreshold = 60.0; // Temperature threshold for ov
 unsigned long lastCanBusBMSRead = 0;
 const unsigned long CAN_BUS_BMS_READ_INTERVAL = 200; //in ms
 
+// DHT Sensor
+unsigned long lastDHTReadTime = 0;
+float currentTemp = 0.0;
 
 LedManager leds;
 
@@ -301,7 +308,7 @@ void setup() {
   lift.begin();
 
   set_microros_transports();
-  
+  dht.begin(); // Initialize DHT sensor
   unsigned long timeLedStart = millis();
   leds.setState(Startup);
 
@@ -417,6 +424,36 @@ void loop() {
   motorFrontRight.setAcceleration(accel);
   motorRearRight.setAcceleration(accel);
   
+  //Temperature sensor
+  if (millis() - lastDHTReadTime > 2000) {
+    float newTemp = dht.readTemperature();
+    
+    // Check of de lezing gelukt is (geen NaN)
+    if (!isnan(newTemp)) {
+      currentTemp = newTemp;
+    }
+    lastDHTReadTime = millis();
+  }
+  static unsigned long lastDebugTime = 0;
+  
+  if (millis() - lastDebugTime > 500) { // Pas interval aan naar wens
+      
+      char debug_buffer[100]; // Zorg dat deze groot genoeg is!
+      
+      // Hier plakken we de temperatuur in de string. 
+      // %.1f betekent: float met 1 decimaal achter de komma.
+      sprintf(debug_buffer, "Status: OK | Temp: %.1f C | V: %.1f", currentTemp, voltage); 
+      
+      // Kopieer naar het ROS bericht
+      // (Pas msg_debug en debug_pub aan naar hoe ze in jouw code heten!)
+      msg_debug.data.data = debug_buffer;
+      msg_debug.data.size = strlen(debug_buffer);
+      msg_debug.data.capacity = 100;
+      
+      rcl_publish(&publisher_debug, &msg_debug, NULL);
+      
+      lastDebugTime = millis();
+  }
   // Debug
   if (debugTimer > 100) {
     debugTimer = 0;
