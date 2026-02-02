@@ -66,6 +66,7 @@ rcl_publisher_t debug_pub;
 rcl_publisher_t battery_voltage_pub;
 rcl_subscription_t sub_actuator; 
 rcl_subscription_t sub_buttons;
+rcl_subscription_t sub_standby;
 // Timers
 rcl_timer_t battery_voltage_timer;
 
@@ -74,6 +75,8 @@ geometry_msgs__msg__Twist msg_twist;
 std_msgs__msg__Int32 msg_buttons;
 std_msgs__msg__String msg_debug;
 std_msgs__msg__Float32 msg_battery_voltage;
+std_msgs__msg__Bool msg_standby;
+bool standby_active = true;
 char debugBuffer[255]; // Buffer for debug string
 // Debug variables
 float debug_joy_lift = 0.0;
@@ -120,6 +123,17 @@ void sendGlobalHeartbeat() {
 void CallbackActuator(const void * msgin) {
   const geometry_msgs__msg__Twist * msg = (const geometry_msgs__msg__Twist *)msgin;
   debug_joy_lift = msg->angular.x;
+  if (standby_active) {
+      // If in standby, ignore actuator commands
+      motorFrontLeft.setSpeed(0);
+      motorRearLeft.setSpeed(0);
+      motorFrontRight.setSpeed(0);
+      motorRearRight.setSpeed(0);
+      lift.setManualSpeed(0);
+      tilt.setManualSpeed(0);
+      leds.setState(Standby);
+      return;
+  }
 //Driving
   // Linear Y = Gas (Forward/Backward)
   // Angular Z = Steering (Left/Right)
@@ -175,6 +189,17 @@ void CallbackActuator(const void * msgin) {
 
 //Callback buttons
 void CallbackButtons(const void * msgin) {
+    if (standby_active) {
+      // If in standby, ignore actuator commands
+      motorFrontLeft.setSpeed(0);
+      motorRearLeft.setSpeed(0);
+      motorFrontRight.setSpeed(0);
+      motorRearRight.setSpeed(0);
+      lift.setManualSpeed(0);
+      tilt.setManualSpeed(0);
+      leds.setState(Standby);
+      return;
+  }
   const std_msgs__msg__Int32 * msg = (const std_msgs__msg__Int32 *)msgin;
   debug_last_preset = msg->data;
   // 0 = Cross [Enter positon name here]
@@ -203,6 +228,23 @@ void CanSniff(const CAN_message_t &msg) {
     motorRearLeft.parseCanMessage(msg);
     motorFrontRight.parseCanMessage(msg);
     motorRearRight.parseCanMessage(msg);
+}
+//Callback standby
+void CallbackStandby(const void * msgin) {
+  const std_msgs__msg__Bool * msg = (const std_msgs__msg__Bool *)msgin;
+  standby_active = msg->data;
+  
+  if (standby_active) {
+    // Stop all motors and actuators immediately
+    motorFrontLeft.setSpeed(0);
+    motorRearLeft.setSpeed(0);
+    motorFrontRight.setSpeed(0);
+    motorRearRight.setSpeed(0);
+    lift.setManualSpeed(0);
+    tilt.setManualSpeed(0);
+    leds.setState(Standby);
+    PublishDebug("Standby: ON");
+  }
 }
 
 void setup() {
@@ -252,10 +294,18 @@ void setup() {
   
   //Buttons Subscriber
   rclc_subscription_init_default(&sub_buttons, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32), "/actuator_buttons");
+  
+  //Standby Subscriber
+  rclc_subscription_init_default(&sub_standby, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Bool), "/standby");
+  
   //Messages
-  rclc_executor_init(&executor, &support.context, 6, &allocator); 
+  rclc_executor_init(&executor, &support.context, 7, &allocator);
   rclc_executor_add_subscription(&executor, &sub_actuator, &msg_twist, &CallbackActuator, ON_NEW_DATA);
   rclc_executor_add_subscription(&executor, &sub_buttons, &msg_buttons, &CallbackButtons, ON_NEW_DATA);
+  rclc_executor_add_subscription(&executor, &sub_standby, &msg_standby, [](const void * msgin) {
+      const std_msgs__msg__Bool * msg = (const std_msgs__msg__Bool *)msgin;
+      standby_active = msg->data;
+  }, ON_NEW_DATA);
 
   rclc_timer_init_default(
     &battery_voltage_timer,
