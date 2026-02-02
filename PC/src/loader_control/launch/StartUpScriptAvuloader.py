@@ -20,9 +20,9 @@ def generate_launch_description():
 
         # 3. Start jouw Control Node
         Node(
-            package='control_turtle',
-            executable='control_Node',
+            package='loader_control',
+            executable='loader_node',
             name='loader_controller',
             output='screen'
-        )
+        ),
     ])
