@@ -132,6 +132,7 @@ void CallbackActuator(const void * msgin) {
       lift.setManualSpeed(0);
       tilt.setManualSpeed(0);
       leds.setState(Standby);
+      leds.update();
       return;
   }
 //Driving
@@ -198,6 +199,7 @@ void CallbackButtons(const void * msgin) {
       lift.setManualSpeed(0);
       tilt.setManualSpeed(0);
       leds.setState(Standby);
+      leds.update();
       return;
   }
   const std_msgs__msg__Int32 * msg = (const std_msgs__msg__Int32 *)msgin;
@@ -243,6 +245,7 @@ void CallbackStandby(const void * msgin) {
     lift.setManualSpeed(0);
     tilt.setManualSpeed(0);
     leds.setState(Standby);
+    leds.update();
     PublishDebug("Standby: ON");
   }
 }
@@ -280,7 +283,7 @@ void setup() {
   while (rclc_support_init(&support, 0, NULL, &allocator) != RCL_RET_OK) {
     leds.setState(Linux_boot_ERR);
     leds.update();
-    delay(10);
+    delay(1);
   }
   
   rclc_node_init_default(&node, "teensy_loader_node", "", &support);
