@@ -7,9 +7,9 @@
       "request": "launch",
       "args": [],
       "stopAtEntry": false,
-      "externalConsole": true,
-      "cwd": ".",
-      "program": "build/Debug/outDebug",
+      "externalConsole": false,
+      "cwd": "/home/avuloader/Avular-S7/RealTimeController",
+      "program": "/home/avuloader/Avular-S7/RealTimeController/build/Debug/outDebug",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [

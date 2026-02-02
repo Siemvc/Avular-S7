@@ -80,8 +80,11 @@ void PublishDebug(const char* text) {
 
 // Check if any actuator or motor is moving
 bool isMoving() {
-  return motorFrontLeft.getSpeed() != 0 || motorRearLeft.getSpeed() != 0 ||
-         motorFrontRight.getSpeed() != 0 || motorRearRight.getSpeed() != 0 ||
+  // Checkt of er een actief setpoint is (ook tijdens optrekken/afremmen)
+  return abs(motorFrontLeft.getCurrentSetpoint()) > 1.0 || 
+         abs(motorRearLeft.getCurrentSetpoint()) > 1.0 ||
+         abs(motorFrontRight.getCurrentSetpoint()) > 1.0 || 
+         abs(motorRearRight.getCurrentSetpoint()) > 1.0 ||
          lift.getSpeedA() != 0 || lift.getSpeedB() != 0 || tilt.getLastSpeed() != 0;
 }
 
@@ -290,6 +293,13 @@ void loop() {
   can3.events();  // ROS
   rclc_executor_spin_some(&executor, RCL_MS_TO_NS(10));
 
+  float accel = 4000.0f; 
+  
+  motorFrontLeft.setAcceleration(accel);
+  motorRearLeft.setAcceleration(accel);
+  motorFrontRight.setAcceleration(accel);
+  motorRearRight.setAcceleration(accel);
+  
   // Debug
   if (debugTimer > 100) {
     debugTimer = 0;
