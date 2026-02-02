@@ -120,7 +120,7 @@ class Control(Node):
         self.prev_circle = circle
         self.prev_triangle = triangle
         self.prev_d_pad_x = d_pad_down
-        self.prev_standby = standby_btn
+        self.prev_standby = standbyButton
         self.optionButton_prev = optionButton
         
 def main(args=None):

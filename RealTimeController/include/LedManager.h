@@ -16,7 +16,6 @@ enum avuloaderState {
   Overheating,
   ERR,
   Linux_boot_ERR,
-  Shutdown,
   IDLE
 };
 
