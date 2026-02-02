@@ -155,7 +155,11 @@ void CallbackActuator(const void * msgin) {
       tilt.setManualSpeed(0);
       leds.setState(Standby);
       leds.update();
+      PublishDebug("Standby: ON");
       return;
+    } else {
+      PublishDebug("Standby: OFF");
+    }
   }
 //Driving
   // Linear Y = Gas (Forward/Backward)
@@ -222,7 +226,11 @@ void CallbackButtons(const void * msgin) {
       tilt.setManualSpeed(0);
       leds.setState(Standby);
       leds.update();
+      PublishDebug("Standby: ON");
       return;
+    } else {
+      PublishDebug("Standby: OFF");
+    }
   }
   const std_msgs__msg__Int32 * msg = (const std_msgs__msg__Int32 *)msgin;
   debug_last_preset = msg->data;
@@ -269,6 +277,8 @@ void CallbackStandby(const void * msgin) {
     leds.setState(Standby);
     leds.update();
     PublishDebug("Standby: ON");
+  }  else {
+    PublishDebug("Standby: OFF");
   }
 }
 
