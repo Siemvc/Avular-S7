@@ -25,7 +25,7 @@ void LedManager::handleLeds() {
     switch (_currentMode) {
         case Startup:           effectFlash(CRGB::Blue3, 300); break;
         case Shutdown:          effectBreathing(CRGB::Magenta3); break;
-        case Standby:           effectBreathing(CRGB::Blue3); break;
+        case Standby:           solidEverywhere(CRGB::Blue3); break;
         case Operational:       effectBreathing(CRGB::Green2); break;
         case Driving:           solidEverywhere(CRGB::Green2); break;
         case E_Brake:           solidEverywhere(CRGB::Red2); break;
