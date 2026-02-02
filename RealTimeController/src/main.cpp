@@ -257,9 +257,24 @@ void loop() {
 
             batteryVoltage += p.totalVoltage_V;
         }
-        if ((batteryVoltage / 2) < batteryLowVoltageThreshold) {
-            leds.setState(Low_power);
-        }
+
+        switch (batteryVoltage / 2)
+        {
+        case batteryLowVoltageThreshold - 0.7 ... batteryLowVoltageThreshold + 0.2:
+          leds.setState(Low_power);
+          break;
+
+        case batteryLowVoltageThreshold - 0.85 ... batteryLowVoltageThreshold - 0.7:
+          leds.setState(battery_empty);
+          break;
+
+        case .. batteryLowVoltageThreshold - 0.85:
+          leds.setState(battery_dead);
+          break;
+
+        default:
+          break; // This should do nothing
+        } 
         lastCanBusBMSRead = millis();
     }
   //FIXME: Re-enable moving LED state when initial led testing of setup is done
