@@ -23,7 +23,7 @@ void LedManager::update() {
 
 void LedManager::handleLeds() {
     switch (_currentMode) {
-        case Startup:        effectFlash(CRGB::Green2, 300); break;
+        case Startup:        effectFlash(CRGB::Blue3, 300); break;
         case Shutdown:       effectBreathing(CRGB::Magenta3); break;
         case Standby:        effectBreathing(CRGB::Blue3); break;
         case Operational:    effectBreathing(CRGB::Green2); break;
@@ -32,6 +32,7 @@ void LedManager::handleLeds() {
         case Low_power:      solidEverywhere(CRGB::Yellow1); break;
         case battery_empty:  effectBlinking(CRGB::Red1, CRGB::Orange, 500, 500, _numLeds / 2); break;
         case battery_dead:   effectBlinking(CRGB::Red1, CRGB::Black, 200, 800, _numLeds / 2); break;
+        case battery_to_hot: effectBreathing(CRGB::Orange); break;
         case ERR:            effectBreathing(CRGB::Yellow1); break;
         case Linux_boot_ERR: effectFlash(CRGB::Yellow1, 200); break;
         default:             effectBreathing(CRGB::Amethyst); break;
