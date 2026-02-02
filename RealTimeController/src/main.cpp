@@ -20,7 +20,7 @@
 uint8_t BMS_ADDR_LIST[2] = { 0x01, 0x02 };
 BMS bms[2] = { BMS(BMS_ADDR_LIST[0]), BMS(BMS_ADDR_LIST[1]) };
 
-float batteryVoltage = 0;
+float batteryVoltage = 0.0f;
 const float batteryLowVoltageThreshold = 19.0; // Voltage threshold for low battery indication
 
 const float overheatTemperatureThreshold = 60.0; // Temperature threshold for overheating indication
@@ -286,27 +286,26 @@ void loop() {
                 leds.setState(Overheating);
             }
 
-            batteryVoltage += p.totalVoltage_V / 2;
+            batteryVoltage += p.totalVoltage_V / 2.0f; // Average voltage from both BMS units
         }
 
-        switch (batteryVoltage)
-        {
-        case batteryLowVoltageThreshold - 0.7 ... batteryLowVoltageThreshold + 0.2:
-          leds.setState(Low_power);
-          break;
+        // switch (batteryVoltage){
+        //   case batteryLowVoltageThreshold - 0.7 ... batteryLowVoltageThreshold + 0.2:
+        //     leds.setState(Low_power);
+        //     break;
 
-        case batteryLowVoltageThreshold - 0.85 ... batteryLowVoltageThreshold - 0.7:
-          leds.setState(battery_empty);
-          break;
+        //   case batteryLowVoltageThreshold - 0.85 ... batteryLowVoltageThreshold - 0.7:
+        //     leds.setState(battery_empty);
+        //     break;
 
-        case .. batteryLowVoltageThreshold - 0.85:
-          leds.setState(battery_dead);
-          break;
+        //   case .. batteryLowVoltageThreshold - 0.85:
+        //     leds.setState(battery_dead);
+        //     break;
 
-        default:
-          break; // This should do nothing
-        } 
-        lastCanBusBMSRead = millis();
+        //   default:
+        //     break; // This should do nothing
+        //   } 
+          lastCanBusBMSRead = millis();
     }
   //FIXME: Re-enable moving LED state when initial led testing of setup is done
   // // Update LED state based on movement

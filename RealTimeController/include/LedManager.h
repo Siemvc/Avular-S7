@@ -36,6 +36,7 @@ private:
     void effectBreathing(CRGB color);
     void effectFlash(CRGB color, int interval);
     void solidEverywhere(CRGB color);
+    void effectBlinking(CRGB color1, CRGB color2, int onDuration, int offDuration, int numLeds);
 };
 
 #endif
