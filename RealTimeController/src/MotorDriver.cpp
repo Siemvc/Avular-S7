@@ -9,7 +9,7 @@ MotorDriver::MotorDriver(uint8_t deviceId) {
     _targetRPM = 0.0f;
     _currentSetpoint = 0.0f;
     _actualRPM = 0.0f;
-    _acceleration = 4000.0f;
+    _acceleration = 12000.0f;
     _sendTimer = 0;
 }
 

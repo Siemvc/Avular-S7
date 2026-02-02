@@ -36,7 +36,7 @@ TiltingActuator tilt(28, 29, 12, 27); //In1, IN2, PWM, Potmeter
 LiftingActuators lift(5, 7, 6, 8, 4, 3, 26, 25);//IN1A, IN1B, IN2A, IN2B, ENA, ENB, PotA, PotB
 
 // Driving Configuration
-const float maxRPM = 4000.0f;  // Max RPM of the motors
+const float maxRPM = 5000.0f;  // Max RPM of the motors
 const float deadzone = 0.05f;   // Joystick deadzone
 
 FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16> can2;
@@ -80,8 +80,11 @@ void PublishDebug(const char* text) {
 
 // Check if any actuator or motor is moving
 bool isMoving() {
-  return motorFrontLeft.getSpeed() != 0 || motorRearLeft.getSpeed() != 0 ||
-         motorFrontRight.getSpeed() != 0 || motorRearRight.getSpeed() != 0 ||
+  // Checkt of er een actief setpoint is (ook tijdens optrekken/afremmen)
+  return abs(motorFrontLeft.getCurrentSetpoint()) > 1.0 || 
+         abs(motorRearLeft.getCurrentSetpoint()) > 1.0 ||
+         abs(motorFrontRight.getCurrentSetpoint()) > 1.0 || 
+         abs(motorRearRight.getCurrentSetpoint()) > 1.0 ||
          lift.getSpeedA() != 0 || lift.getSpeedB() != 0 || tilt.getLastSpeed() != 0;
 }
 
