@@ -23,6 +23,8 @@ BMS bms[2] = { BMS(BMS_ADDR_LIST[0]), BMS(BMS_ADDR_LIST[1]) };
 float batteryVoltage = 0;
 const float batteryLowVoltageThreshold = 19.0; // Voltage threshold for low battery indication
 
+const float overheatTemperatureThreshold = 60.0; // Temperature threshold for overheating indication
+
 unsigned long lastCanBusBMSRead = 0;
 const unsigned long CAN_BUS_BMS_READ_INTERVAL = 200; //in ms
 
@@ -30,10 +32,10 @@ const unsigned long CAN_BUS_BMS_READ_INTERVAL = 200; //in ms
 LedManager leds;
 
 elapsedMillis debugTimer;
-elapsedMillis heartBeatTimer; // Timer voor de globale CAN heartbeat
+elapsedMillis heartBeatTimer; // Timer for the CAN heartbeat
 
 // Pin Configuratie Actuators
-TiltingActuator tilt(28, 29, 12, 27); //In1, IN2, PWM, Potmeter
+TiltingActuator tilt(28, 29, 12, 27); //In1, IN2, PWM, Potentiometer
 LiftingActuators lift(5, 7, 6, 8, 4, 3, 26, 25);//IN1A, IN1B, IN2A, IN2B, ENA, ENB, PotA, PotB
 
 // Driving Configuration
@@ -279,7 +281,10 @@ void loop() {
             TempData t;
             
             bms[i].readPackVI(p);
-            bms[i].readTempData(t); //this doesn't do anything yet -Siem v C. 
+            bms[i].readTempData(t);
+            if (t.avgTemp_C >= overheatTemperatureThreshold) {
+                leds.setState(Overheating);
+            }
 
             batteryVoltage += p.totalVoltage_V / 2;
         }
