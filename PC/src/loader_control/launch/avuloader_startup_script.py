@@ -1,7 +1,7 @@
 import os
-import time
 import sys
 import serial # Zorg dat pyserial is geïnstalleerd (sudo apt install python3-serial)
+import time
 
 from launch import LaunchDescription
 from launch_ros.actions import Node
