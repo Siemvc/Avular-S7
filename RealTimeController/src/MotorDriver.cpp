@@ -29,22 +29,17 @@ void MotorDriver::update(FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_16>& bus) { //cre
     float dt = (float)_sendTimer / 1000.0f; 
     _sendTimer = 0;
 
-    // 2. Bereken de maximale stap die we mogen maken in deze tijd
     float maxStep = _acceleration * dt;
 
-    // 3. Ramping Logica
     if (_currentSetpoint < _targetRPM) {
         _currentSetpoint += maxStep;
-        // Niet doorschieten voorbij het doel
         if (_currentSetpoint > _targetRPM) _currentSetpoint = _targetRPM;
     }
     else if (_currentSetpoint > _targetRPM) {
         _currentSetpoint -= maxStep;
-        // Niet doorschieten onder het doel
         if (_currentSetpoint < _targetRPM) _currentSetpoint = _targetRPM;
     }
 
-    // 4. Stuur de GERAMPTE waarde (_currentSetpoint) ipv de target
     CAN_message_t msg;
     msg.id = SMART_VELOCITY_BASE + _deviceId;
     msg.flags.extended = 1;

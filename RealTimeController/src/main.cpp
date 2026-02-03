@@ -17,7 +17,6 @@
 #include "BMS.h"
 
 //Temp sensor configuration
-
 #define DHTPIN 14    
 #define DHTTYPE DHT11
 DHT dht(DHTPIN, DHTTYPE);
@@ -34,30 +33,27 @@ const float batteryDeadVoltageThreshold = 18.1; // Voltage threshold for dead ba
 const float overheatTemperatureThreshold = 60.0; // Temperature threshold for overheating indication
 unsigned long lastCanBusBMSRead = 0;
 const unsigned long CAN_BUS_BMS_READ_INTERVAL = 200; //in ms
+FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16> can2;
 
-
+//LEDS configuration
 LedManager leds;
 
-elapsedMillis debugTimer;
-elapsedMillis heartBeatTimer; // Timer for the CAN heartbeat
-// Timestamp of the last detected movement (ms)
-unsigned long lastMovementTime = 0;
+elapsedMillis heartBeatTimer; //Timer for the CAN heartbeat
+unsigned long lastMovementTime = 0; // Timestamp of the last detected movement (ms)
 
-// Pin Configuratie Actuators
+// Configuration Actuators
 TiltingActuator tilt(28, 29, 12, 27); //In1, IN2, PWM, Potentiometer
 LiftingActuators lift(5, 7, 6, 8, 4, 3, 26, 25);//IN1A, IN1B, IN2A, IN2B, ENA, ENB, PotA, PotB
 
 // Driving Configuration
 const float maxRPM = 5000.0f;  // Max RPM of the motors
 const float deadzone = 0.05f;   // Joystick deadzone
-FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16> can2;
 FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_16> can3;
-MotorDriver motorRearRight(11);
+MotorDriver motorRearRight(11); //CAN ID's
 MotorDriver motorFrontRight(12);
 MotorDriver motorFrontLeft(13);
 MotorDriver motorRearLeft(14);
-// Configuration motors inversion of the right side
-bool invertMotorLeft = false;
+bool invertMotorLeft = false; //Invert right side motors
 bool invertMotorRight = true;
 
 //ROS Objects 
@@ -81,10 +77,11 @@ std_msgs__msg__Float32 msg_battery_voltage;
 rcl_subscription_t sub_system;
 std_msgs__msg__Int32 msg_system;
 std_msgs__msg__Bool msg_standby;
+// Standby and Shutdown flags
 bool standby_active = true;
 bool shutdown_active = false;
-
-char debugBuffer[255]; // Buffer for debug string
+// Buffer for debug string
+char debugBuffer[255]; 
 // Debug variables
 float debug_joy_lift = 0.0;
 int debug_last_preset = -1;
@@ -99,7 +96,6 @@ void PublishDebug(const char* text) {
 
 void CallbackSystem(const void * msgin) {
   const std_msgs__msg__Int32 * msg = (const std_msgs__msg__Int32 *)msgin;
-  
   // Code 99 = SHUTDOWN
   if (msg->data == 99) {
       shutdown_active = true;
