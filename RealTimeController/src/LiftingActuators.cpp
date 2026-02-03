@@ -8,18 +8,20 @@ LiftingActuators::LiftingActuators(int pinIN1A, int pinIN1B, int pinIN2A, int pi
     _minPWM = 60; 
     _maxPWM = 180; //Do not make this higher than 250, to avoid overloading the motor driver! (See datasheet)
     _deadband = 7; 
-
+    //Control gains
     _kp = 8.0; 
     _syncKp = 0.3; //Correction factor for synchronization
-    
+    //Acceleration
+    _currentSpeedA = 0;
+    _currentSpeedB = 0;
+    _acceleration = 5.0;    
     //Left (A)
     _minPotA = 905; // 0mm      915
     _maxPotA = 620; // 300mm    
-    
-    //Right (B)
+        //Right (B)
     _minPotB = 905; // 0mm
     _maxPotB = 620; // 300mm    
- 
+    //Initial states
     _targetPosA = -1;
     _targetPosB = -1;
     _manualMode = true;
@@ -70,6 +72,17 @@ void LiftingActuators::setMotorBSpeed(int speed) {
     }
 }
 
+float LiftingActuators::rampValue(float current, int target, float rampRate) {
+    if (current < target) {
+        current += rampRate;
+        if (current > target) current = target; // Niet doorschieten
+    } else if (current > target) {
+        current -= rampRate;
+        if (current < target) current = target; // Niet doorschieten
+    }
+    return current;
+}
+
 void LiftingActuators::update() {
     _currentPosA = analogRead(_pinPotA);
     _currentPosB = analogRead(_pinPotB);
@@ -84,33 +97,35 @@ void LiftingActuators::update() {
     int avgCurrent = (currentMM_A + currentMM_B) / 2;
     int distanceError = targetMM - avgCurrent;
 
-    if (abs(distanceError) < 3) {
-        setMotorASpeed(0);
-        setMotorBSpeed(0);
-        return;
+    int targetPWM_A = 0;
+    int targetPWM_B = 0;
+
+    if (abs(distanceError) >= 3) {
+        int basePWM = distanceError * _kp;
+        int maxBaseSpeed = 200; 
+        
+        if (basePWM > 0) basePWM = constrain(basePWM, _minPWM, maxBaseSpeed);
+        else basePWM = constrain(basePWM, -maxBaseSpeed, -_minPWM);
+
+        // Sync calculation
+        int syncError = currentMM_A - currentMM_B; 
+        int syncCorrection = syncError * _syncKp;
+
+        // Calculate DESIRED PWM
+        targetPWM_A = basePWM - syncCorrection;
+        targetPWM_B = basePWM + syncCorrection;
+
+        // Safety constraints
+        targetPWM_A = constrain(targetPWM_A, -_maxPWM, _maxPWM);
+        targetPWM_B = constrain(targetPWM_B, -_maxPWM, _maxPWM);
     }
-    //Calculate base PWM from distance error
-    int basePWM = distanceError * _kp;
-    int maxBaseSpeed = 200;  //Take ~80% of max speed for synchronization corrections
     
-    if (basePWM > 0) basePWM = constrain(basePWM, _minPWM, maxBaseSpeed);
-    else basePWM = constrain(basePWM, -maxBaseSpeed, -_minPWM);
+    _currentSpeedA = rampValue(_currentSpeedA, targetPWM_A, _acceleration);
+    _currentSpeedB = rampValue(_currentSpeedB, targetPWM_B, _acceleration);
 
-    // Synchronization error , if A is ahead, B needs to catch up, vice versa
-    int syncError = currentMM_A - currentMM_B; 
-    //Calculate correction based on sync error
-    int syncCorrection = syncError * _syncKp;
-
-    //Final PWM values
-    int pwmA = basePWM - syncCorrection;
-    int pwmB = basePWM + syncCorrection;
-
-    //Safety constraints
-    pwmA = constrain(pwmA, -_maxPWM, _maxPWM);
-    pwmB = constrain(pwmB, -_maxPWM, _maxPWM);
-    //Send PWM to motors
-    setMotorASpeed(pwmA);
-    setMotorBSpeed(pwmB);
+    // Stuur de gerampte waarde naar de motoren
+    setMotorASpeed((int)_currentSpeedA);
+    setMotorBSpeed((int)_currentSpeedB);
 }
 
 
@@ -129,36 +144,34 @@ void LiftingActuators::setManualSpeed(float input) {
     
     //Deadzone and base PWM calculation
     int rawPWM = (int)(input * _maxPWM);
-    if (abs(rawPWM) < 40) {
-        setMotorASpeed(0);
-        setMotorBSpeed(0);
-        return;
+    
+    int targetPWM_A = 0;
+    int targetPWM_B = 0;
+
+    // Alleen als we input hebben die groter is dan deadzone
+    if (abs(rawPWM) >= 40) {
+        int maxBaseSpeed = 200;
+        int basePWM = constrain(rawPWM, -maxBaseSpeed, maxBaseSpeed);
+
+        int mmA = map(_currentPosA, _minPotA, _maxPotA, 0, _strokeLength);
+        int mmB = map(_currentPosB, _minPotB, _maxPotB, 0, _strokeLength);
+
+        int syncError = mmA - mmB; 
+        int syncCorrection = syncError * _syncKp;
+
+        targetPWM_A = basePWM - syncCorrection;
+        targetPWM_B = basePWM + syncCorrection;
+
+        targetPWM_A = constrain(targetPWM_A, -_maxPWM, _maxPWM);
+        targetPWM_B = constrain(targetPWM_B, -_maxPWM, _maxPWM);
     }
 
-    //Cap base speed to leave room for synchronization correction
-    int maxBaseSpeed = 200;
-    int basePWM = constrain(rawPWM, -maxBaseSpeed, maxBaseSpeed);
-
-    //Determine position in mm
-    int mmA = map(_currentPosA, _minPotA, _maxPotA, 0, _strokeLength);
-    int mmB = map(_currentPosB, _minPotB, _maxPotB, 0, _strokeLength);
-
-    //Calculate synchronization error, positive if A is higher than B
-    int syncError = mmA - mmB; 
+    // --- OOK HIER RAMPING TOEPASSEN ---
+    _currentSpeedA = rampValue(_currentSpeedA, targetPWM_A, _acceleration);
+    _currentSpeedB = rampValue(_currentSpeedB, targetPWM_B, _acceleration);
     
-    //Calculate correction 
-    int syncCorrection = syncError * _syncKp;
-
-    //Final speeds   
-    int pwmA = basePWM - syncCorrection;
-    int pwmB = basePWM + syncCorrection;
-
-    //Safety: Clip to hardware limit
-    pwmA = constrain(pwmA, -_maxPWM, _maxPWM);
-    pwmB = constrain(pwmB, -_maxPWM, _maxPWM);
-    
-    setMotorASpeed(pwmA);
-    setMotorBSpeed(pwmB);
+    setMotorASpeed((int)_currentSpeedA);
+    setMotorBSpeed((int)_currentSpeedB);
 }
 
 int LiftingActuators::getCurrentPosition() { 

@@ -24,6 +24,12 @@ private:
     int _speedA, _speedB;
     bool _manualMode; 
 
+    float _currentSpeedA = 0; 
+    float _currentSpeedB = 0;
+    float _acceleration = 5.0; // Speed change per update call
+
+    float rampValue(float current, int target, float rampRate);
+
     void setMotorASpeed(int speed);
     void setMotorBSpeed(int speed);
 
