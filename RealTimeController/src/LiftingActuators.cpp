@@ -14,7 +14,7 @@ LiftingActuators::LiftingActuators(int pinIN1A, int pinIN1B, int pinIN2A, int pi
     //Acceleration
     _currentSpeedA = 0;
     _currentSpeedB = 0;
-    _acceleration = 5.0;    
+    _acceleration = 7.0; 
     //Left (A)
     _minPotA = 905; // 0mm      915
     _maxPotA = 620; // 300mm    

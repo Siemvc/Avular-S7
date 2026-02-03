@@ -80,6 +80,7 @@ rcl_subscription_t sub_system;
 std_msgs__msg__Int32 msg_system;
 std_msgs__msg__Bool msg_standby;
 bool standby_active = true;
+bool shutdown_active = false;
 
 char debugBuffer[255]; // Buffer for debug string
 // Debug variables
@@ -99,8 +100,9 @@ void CallbackSystem(const void * msgin) {
   
   // Code 99 = SHUTDOWN
   if (msg->data == 99) {
-      leds.setState(Shutdown); // Deze staat moet je nog maken in LedManager!
-      
+      shutdown_active = true;
+      leds.setState(Shutdown);
+      leds.update();
       //Stop motors
       motorFrontLeft.setSpeed(0);
       motorRearLeft.setSpeed(0);
@@ -330,6 +332,12 @@ void setup() {
 }
 
 void loop() {
+  if (shutdown_active) {
+      leds.setState(Shutdown);
+      leds.update();
+      rclc_executor_spin_some(&executor, RCL_MS_TO_NS(10)); 
+      return; // jump out of loop
+  }
   if (standby_active) {
      leds.setState(Standby);
   } 
