@@ -6,7 +6,7 @@ void LedManager::begin(int pin, int numLeds) {
 
     FastLED.addLeds<WS2812, 23, GRB>(_leds, _numLeds); 
     
-    FastLED.setBrightness(100);
+    FastLED.setBrightness(255);
 
     _currentMode = Startup;
     _startTime = millis();
@@ -23,7 +23,7 @@ void LedManager::update() {
 
 void LedManager::handleLeds() {
     switch (_currentMode) {
-        case Startup:           effectFlash(CRGB::Blue3, 300); break;
+        case Startup:           effectBlinking(CRGB::Green1, CRGB::Orange, 200, 200, _numLeds / 2); break;
         case Shutdown:          effectBreathing(CRGB::Magenta3); break;
         case Standby:           solidEverywhere(CRGB::Blue3); break;
         case Operational:       effectBreathing(CRGB::Green2); break;

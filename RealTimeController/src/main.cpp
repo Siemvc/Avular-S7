@@ -9,35 +9,32 @@
 #include <std_msgs/msg/string.h>
 #include <std_msgs/msg/float32.h>
 #include <FlexCAN_T4.h>
-
+#include <DHT.h>
 #include "MotorDriver.h"      
 #include "TiltingActuator.h"  
 #include "LiftingActuators.h" 
 #include "LedManager.h"
 #include "BMS.h"
-#include <DHT.h>
+
+//Temp sensor configuration
 
 #define DHTPIN 14    
 #define DHTTYPE DHT11
 DHT dht(DHTPIN, DHTTYPE);
+unsigned long lastDHTReadTime = 0;
+float currentTemp = 0.0;
 
-//bms
+//BMS Configuration
 uint8_t BMS_ADDR_LIST[2] = { 0x01, 0x02 };
 BMS bms[2] = { BMS(BMS_ADDR_LIST[0]), BMS(BMS_ADDR_LIST[1]) };
-
 float batteryVoltage = 0.0f;
 const float batteryLowVoltageThreshold = 19.0; // Voltage threshold for low battery indication
 const float batteryCriticalVoltageThreshold = 18.35; // Voltage threshold for critical battery indication
 const float batteryDeadVoltageThreshold = 18.1; // Voltage threshold for dead battery indication
-
 const float overheatTemperatureThreshold = 60.0; // Temperature threshold for overheating indication
-
 unsigned long lastCanBusBMSRead = 0;
 const unsigned long CAN_BUS_BMS_READ_INTERVAL = 200; //in ms
 
-// DHT Sensor
-unsigned long lastDHTReadTime = 0;
-float currentTemp = 0.0;
 
 LedManager leds;
 
@@ -51,15 +48,12 @@ LiftingActuators lift(5, 7, 6, 8, 4, 3, 26, 25);//IN1A, IN1B, IN2A, IN2B, ENA, E
 // Driving Configuration
 const float maxRPM = 5000.0f;  // Max RPM of the motors
 const float deadzone = 0.05f;   // Joystick deadzone
-
 FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16> can2;
 FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_16> can3;
 MotorDriver motorRearRight(11);
 MotorDriver motorFrontRight(12);
 MotorDriver motorFrontLeft(13);
 MotorDriver motorRearLeft(14);
-
-
 // Configuration motors inversion of the right side
 bool invertMotorLeft = false;
 bool invertMotorRight = true;
@@ -77,7 +71,6 @@ rcl_subscription_t sub_buttons;
 rcl_subscription_t sub_standby;
 // Timers
 rcl_timer_t battery_voltage_timer;
-
 // Messages
 geometry_msgs__msg__Twist msg_twist;
 std_msgs__msg__Int32 msg_buttons;
@@ -108,24 +101,22 @@ void CallbackSystem(const void * msgin) {
   if (msg->data == 99) {
       leds.setState(Shutdown); // Deze staat moet je nog maken in LedManager!
       
-      // Optioneel: Zet motoren veilig stil
+      //Stop motors
       motorFrontLeft.setSpeed(0);
       motorRearLeft.setSpeed(0);
       motorFrontRight.setSpeed(0);
       motorRearRight.setSpeed(0);
-      
-      // Stop actuatoren
+      //Stop actuators
       lift.setManualSpeed(0);
       tilt.setManualSpeed(0);
   }
 }
-
+//Battery voltage timer callback
 void BatteryVoltageTimerCallback(rcl_timer_t * timer, int64_t last_call_time) {
   (void)last_call_time;
   if (timer == NULL) {
     return;
   }
-
   msg_battery_voltage.data = batteryVoltage;
   rcl_publish(&battery_voltage_pub, &msg_battery_voltage, NULL);
 }
@@ -161,18 +152,12 @@ void CallbackActuator(const void * msgin) {
       motorRearRight.setSpeed(0);
       lift.setManualSpeed(0);
       tilt.setManualSpeed(0);
-      leds.setState(Standby);
-      leds.update();
-      PublishDebug("Standby: ON");
       return;
-    } else {
-      PublishDebug("Standby: OFF");
-    }
+    } 
   
 //Driving
   // Linear Y = Gas (Forward/Backward)
   // Angular Z = Steering (Left/Right)
-   
   float throttle = msg->linear.y;
   float steering = msg->angular.z;
 
@@ -197,8 +182,7 @@ void CallbackActuator(const void * msgin) {
   if (invertMotorLeft) rpmLeft *= -1;
   if (invertMotorRight) rpmRight *= -1;
 
-  
-  motorFrontLeft.setSpeed(rpmLeft);
+    motorFrontLeft.setSpeed(rpmLeft);
   motorRearLeft.setSpeed(rpmLeft);
   motorFrontRight.setSpeed(rpmRight);
   motorRearRight.setSpeed(rpmRight);
@@ -232,13 +216,8 @@ void CallbackButtons(const void * msgin) {
       motorRearRight.setSpeed(0);
       lift.setManualSpeed(0);
       tilt.setManualSpeed(0);
-      leds.setState(Standby);
-      leds.update();
-      PublishDebug("Standby: ON");
       return;
-    } else {
-      PublishDebug("Standby: OFF");
-    }
+    } 
   
   const std_msgs__msg__Int32 * msg = (const std_msgs__msg__Int32 *)msgin;
   debug_last_preset = msg->data;
@@ -273,21 +252,16 @@ void CanSniff(const CAN_message_t &msg) {
 void CallbackStandby(const void * msgin) {
   const std_msgs__msg__Bool * msg = (const std_msgs__msg__Bool *)msgin;
   standby_active = msg->data;
-  
   if (standby_active) {
-    // Stop all motors and actuators immediately
+    leds.setState(Standby);
+    // VEILIGHEID: Direct motoren en actuatoren killen
     motorFrontLeft.setSpeed(0);
     motorRearLeft.setSpeed(0);
     motorFrontRight.setSpeed(0);
     motorRearRight.setSpeed(0);
     lift.setManualSpeed(0);
     tilt.setManualSpeed(0);
-    leds.setState(Standby);
-    leds.update();
-    PublishDebug("Standby: ON");
-  }  else {
-    PublishDebug("Standby: OFF");
-  }
+  }  
 }
 
 void setup() {
@@ -342,10 +316,7 @@ void setup() {
   rclc_executor_init(&executor, &support.context, 6, &allocator); 
   rclc_executor_add_subscription(&executor, &sub_actuator, &msg_twist, &CallbackActuator, ON_NEW_DATA);
   rclc_executor_add_subscription(&executor, &sub_buttons, &msg_buttons, &CallbackButtons, ON_NEW_DATA);
-  rclc_executor_add_subscription(&executor, &sub_standby, &msg_standby, [](const void * msgin) {
-      const std_msgs__msg__Bool * msg = (const std_msgs__msg__Bool *)msgin;
-      standby_active = msg->data;
-  }, ON_NEW_DATA);
+  rclc_executor_add_subscription(&executor, &sub_standby, &msg_standby, &CallbackStandby, ON_NEW_DATA);
 
   rclc_timer_init_default(
     &battery_voltage_timer,
@@ -356,10 +327,19 @@ void setup() {
 
   leds.setState(Standby);
   leds.update();
-  delay(1000); //use delay to show standby state during testing can be removed later
 }
 
 void loop() {
+  if (standby_active) {
+     leds.setState(Standby);
+  } 
+  else if (isMoving()) {
+    leds.setState(Driving);
+  } 
+  else {
+    leds.setState(Operational);
+  }
+  
     if (millis() - lastCanBusBMSRead >= CAN_BUS_BMS_READ_INTERVAL) {
         batteryVoltage = 0;
         for (int i = 0; i < 2; i++) {
@@ -392,14 +372,8 @@ void loop() {
     }
   //FIXME: Re-enable moving LED state when initial led testing of setup is done
   // Update LED state based on movement
-  if (isMoving()) {
-    leds.setState(Driving);
-  } else {
-    leds.setState(Operational);
-  }
-  // LED updates
+  
   leds.update();
-  // Actuator updates
   tilt.update();
   lift.update();
   
@@ -428,46 +402,26 @@ void loop() {
   //Temperature sensor
   if (millis() - lastDHTReadTime > 2000) {
     float newTemp = dht.readTemperature();
-    
     // Check of de lezing gelukt is (geen NaN)
     if (!isnan(newTemp)) {
       currentTemp = newTemp;
     }
     lastDHTReadTime = millis();
   }
-  static unsigned long lastDebugTime = 0;
   
-  if (millis() - lastDebugTime > 500) { // Pas interval aan naar wens
-      
-      char debug_buffer[100]; // Zorg dat deze groot genoeg is!
-      
-      // Hier plakken we de temperatuur in de string. 
-      // %.1f betekent: float met 1 decimaal achter de komma.
-      sprintf(debug_buffer, "Status: OK | Temp: %.1f C | V: %.1f", currentTemp, batteryVoltage); 
-      
-      // Kopieer naar het ROS bericht
-      // (Pas msg_debug en debug_pub aan naar hoe ze in jouw code heten!)
-      msg_debug.data.data = debug_buffer;
-      msg_debug.data.size = strlen(debug_buffer);
-      msg_debug.data.capacity = 100;
-      
-      rcl_publish(&debug_pub, &msg_debug, NULL);
-      
-      lastDebugTime = millis();
-  }
   // Debug
   if (debugTimer > 100) {
     debugTimer = 0;
+    const char* modeStr = lift.isManualMode() ? "MAN" : "AUT";
     
-   const char* modeStr = lift.isManualMode() ? "MAN" : "AUT";
-    
-    sprintf(debugBuffer, "MOD:%s JOY:%.2f BTN:%d | LIFT:%dmm A:%d/%d B:%d/%d", 
+    sprintf(debugBuffer, "Mode:%s JOY:%.2f Button:%d | Lift: pos %dmm posA:%d targetA:%d, posB:%d TargetB:%d | Temp: %.1f C", 
             modeStr,                  // Modus (MAN/AUT)
             debug_joy_lift,           // Joystick input (-1.0 tot 1.0)
             debug_last_preset,        // Laatste knop (0, 1, 2)
             lift.getCurrentPosition(),
             lift.getPosA(), lift.getTargetA(),
-            lift.getPosB(), lift.getTargetB()
+            lift.getPosB(), lift.getTargetB(),
+            currentTemp
             );
     PublishDebug(debugBuffer);
   }

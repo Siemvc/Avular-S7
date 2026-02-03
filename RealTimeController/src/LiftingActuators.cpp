@@ -6,11 +6,11 @@ LiftingActuators::LiftingActuators(int pinIN1A, int pinIN1B, int pinIN2A, int pi
     _pinPotA = pinPotA; _pinPotB = pinPotB;
 
     _minPWM = 60; 
-    _maxPWM = 150; //Do not make this higher than 250, to avoid overloading the motor driver! (See datasheet)
+    _maxPWM = 180; //Do not make this higher than 250, to avoid overloading the motor driver! (See datasheet)
     _deadband = 7; 
 
     _kp = 8.0; 
-    _syncKp = 3.0; //Correction factor for synchronization
+    _syncKp = 0.3; //Correction factor for synchronization
     
     //Left (A)
     _minPotA = 905; // 0mm      915
