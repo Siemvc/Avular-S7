@@ -40,6 +40,8 @@ LedManager leds;
 
 elapsedMillis debugTimer;
 elapsedMillis heartBeatTimer; // Timer for the CAN heartbeat
+// Timestamp of the last detected movement (ms)
+unsigned long lastMovementTime = 0;
 
 // Pin Configuratie Actuators
 TiltingActuator tilt(28, 29, 12, 27); //In1, IN2, PWM, Potentiometer
@@ -332,12 +334,16 @@ void setup() {
 void loop() {
   if (standby_active) {
      leds.setState(Standby);
-  } 
-  else if (isMoving()) {
-    leds.setState(Driving);
-  } 
-  else {
-    leds.setState(Operational);
+  } else {
+    if (isMoving()) {
+      lastMovementTime = millis();
+      leds.setState(Driving);
+    } else if (millis() - lastMovementTime < 1000) {
+      // Keep showing Driving for 1 second after motion stops
+      leds.setState(Driving);
+    } else {
+      leds.setState(Operational);
+    }
   }
   
     if (millis() - lastCanBusBMSRead >= CAN_BUS_BMS_READ_INTERVAL) {
