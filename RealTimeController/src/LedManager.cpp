@@ -40,26 +40,33 @@ void LedManager::handleLeds() {
 }
 
 void LedManager::effectBreathing(CRGB color) {
-    float breath = (exp(sin(millis()/2000.0*PI)) - 0.36787944)*108.0;
-    for(int i=0; i < _numLeds; i++) {
-        _leds[i] = color;
-        _leds[i].fadeToBlackBy(255 - breath);
-    }
+    // compute a smooth 0..255 breathing value
+    float raw = (exp(sin(millis() / 2000.0 * PI)) - 0.36787944) * 108.0;
+    uint8_t breath = (uint8_t)constrain((int)raw, 0, 255);
+
+    // set overall FastLED brightness to the breathing
+    uint8_t combined = scale8(breath, _brightness);
+    FastLED.setBrightness(combined);
+
+    // Fill every LED with the given color
+    fill_solid(_leds, _numLeds, color);
 }
 
 void LedManager::effectFlash(CRGB color, int interval) {
     CRGB current = (millis() / interval) % 2 == 0 ? color : CRGB::Black;
+    FastLED.setBrightness(_brightness);
     fill_solid(_leds, _numLeds, current);
 }
 
 void LedManager::solidEverywhere(CRGB color) {
+    FastLED.setBrightness(_brightness);
     fill_solid(_leds, _numLeds, color);
 }
 
 void LedManager::effectBlinking(CRGB color1, CRGB color2, int onDuration, int offDuration, int numLeds) {
     unsigned long cycleTime = onDuration + offDuration;
     unsigned long timeInCycle = millis() % cycleTime;
-
+    FastLED.setBrightness(_brightness);
     bool firstPhase = (timeInCycle < onDuration);
     //First half
     fill_solid(&_leds[0], numLeds, firstPhase ? color1 : color2);

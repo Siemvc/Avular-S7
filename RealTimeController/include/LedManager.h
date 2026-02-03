@@ -32,6 +32,7 @@ private:
     CRGB* _leds; 
     avuloaderState _currentMode = Startup;
     unsigned long _startTime;
+    uint8_t _brightness = 100; // global brightness (0-255)
     void handleLeds();
     void effectBreathing(CRGB color);
     void effectFlash(CRGB color, int interval);
