@@ -23,7 +23,7 @@ void LedManager::update() {
 void LedManager::handleLeds() {
     switch (_currentMode) {
         case Startup:           effectBlinking(CRGB::Green1, CRGB::Orange, 200, 200, _numLeds / 2); break;
-        case Shutdown:          solidEverywhere(CRGB::Magenta3); break;
+        case Shutdown:          effectFlash(CRGB::Magenta3, 200); break;
         case Standby:           solidEverywhere(CRGB::Blue3); break;
         case Operational:       effectBreathing(CRGB::Green2); break;
         case Driving:           solidEverywhere(CRGB::Green2); break;

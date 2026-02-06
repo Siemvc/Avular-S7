@@ -56,7 +56,7 @@ MotorDriver motorFrontRight(12);
 MotorDriver motorFrontLeft(13);
 MotorDriver motorRearLeft(14);
 bool invertMotorLeft = false; //Invert right side motors
-bool invertMotorRight = true;
+bool invertMotorRight = false;
 
 //ROS Objects 
 rcl_node_t node;
@@ -82,6 +82,7 @@ std_msgs__msg__Bool msg_standby;
 // Standby and Shutdown flags
 bool standby_active = true;
 bool shutdown_active = false;
+bool is_startup_mode = true;
 // Buffer for debug string
 char debugBuffer[255]; 
 // Debug variables
@@ -254,9 +255,10 @@ void CanSniff(const CAN_message_t &msg) {
 void CallbackStandby(const void * msgin) {
   const std_msgs__msg__Bool * msg = (const std_msgs__msg__Bool *)msgin;
   standby_active = msg->data;
+  is_startup_mode = false;
   if (standby_active) {
     leds.setState(Standby);
-    // VEILIGHEID: Direct motoren en actuatoren killen
+    //standby safety
     motorFrontLeft.setSpeed(0);
     motorRearLeft.setSpeed(0);
     motorFrontRight.setSpeed(0);
@@ -273,7 +275,7 @@ void setup() {
   bms[0].init(can2);
   bms[1].init(can2);
 
-  leds.begin(23, 8); //led_PIN , Num_leds
+  leds.begin(23, 10); //led_PIN , Num_leds
 
   analogReadResolution(10); 
   
@@ -284,23 +286,25 @@ void setup() {
   tilt.begin();
   lift.begin();
 
+
   set_microros_transports();
   dht.begin(); // Initialize DHT sensor
   unsigned long timeLedStart = millis();
-  leds.setState(Startup);
 
-  while((millis() - timeLedStart) < 3000){
-    leds.update();
-    delay(1);
-  }
- //keep in mind safety delay of 2000 removed due to startup led show already taking up 3000
+  leds.setState(Startup);
+  leds.update();
+
+
   allocator = rcl_get_default_allocator();
 
-  while (rclc_support_init(&support, 0, NULL, &allocator) != RCL_RET_OK) {
-    leds.setState(Linux_boot_ERR);
-    leds.update();
-    delay(1);
-  }
+   while (rclc_support_init(&support, 0, NULL, &allocator) != RCL_RET_OK) {
+      // Wacht 500ms tussen pogingen, maar blijf LEDs updaten
+      unsigned long retryStart = millis();
+      while(millis() - retryStart < 500) { 
+          leds.update();
+          delay(1);
+      }
+    }
   
   rclc_node_init_default(&node, "teensy_loader_node", "", &support);
 
@@ -311,22 +315,20 @@ void setup() {
   //Subscribers
   rclc_subscription_init_default(&sub_actuator, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist), "/actuator_pub");
   rclc_subscription_init_default(&sub_buttons, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32), "/actuator_buttons");
-    rclc_subscription_init_default(&sub_standby, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Bool), "/standby");
-    rclc_subscription_init_default(&sub_system, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32), "/system_command");
+  rclc_subscription_init_default(&sub_standby, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Bool), "/standby");
+  rclc_subscription_init_default(&sub_system, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32), "/system_command");
 
   //Messages
   rclc_executor_init(&executor, &support.context, 6, &allocator); 
   rclc_executor_add_subscription(&executor, &sub_actuator, &msg_twist, &CallbackActuator, ON_NEW_DATA);
   rclc_executor_add_subscription(&executor, &sub_buttons, &msg_buttons, &CallbackButtons, ON_NEW_DATA);
   rclc_executor_add_subscription(&executor, &sub_standby, &msg_standby, &CallbackStandby, ON_NEW_DATA);
+  rclc_executor_add_subscription(&executor, &sub_system, &msg_system, &CallbackSystem, ON_NEW_DATA);
 
-  rclc_timer_init_default(
-    &battery_voltage_timer,
-    &support,
-    RCL_MS_TO_NS(60000),
-    BatteryVoltageTimerCallback);
+
+  rclc_timer_init_default(&battery_voltage_timer, &support, RCL_MS_TO_NS(60000), BatteryVoltageTimerCallback);
   rclc_executor_add_timer(&executor, &battery_voltage_timer);
-
+  is_startup_mode = false; 
   leds.setState(Standby);
   leds.update();
 }
@@ -335,55 +337,55 @@ void loop() {
   if (shutdown_active) {
       leds.setState(Shutdown);
       leds.update();
+      motorFrontLeft.update(can3);
+      motorRearLeft.update(can3);
+      motorFrontRight.update(can3);
+      motorRearRight.update(can3);
       rclc_executor_spin_some(&executor, RCL_MS_TO_NS(10)); 
       return; // jump out of loop
   }
-  if (standby_active) {
+  //Startup
+  if (is_startup_mode) {
+      leds.setState(Startup);
+  }
+  //Standby
+  else if (standby_active) {
      leds.setState(Standby);
-  } else {
+  } 
+  //Operational
+  else {
     if (isMoving()) {
       lastMovementTime = millis();
       leds.setState(Driving);
     } else if (millis() - lastMovementTime < 1000) {
-      // Keep showing Driving for 1 second after motion stops
       leds.setState(Driving);
     } else {
       leds.setState(Operational);
     }
   }
-  
-    if (millis() - lastCanBusBMSRead >= CAN_BUS_BMS_READ_INTERVAL) {
-        batteryVoltage = 0;
-        for (int i = 0; i < 2; i++) {
-            //Status1 s1;
-            // if (!bms[i].readStatus1(s1)){
-            //     // No response; skip this BMS this cycle
-            //     continue;
-            // }
-
-            PackVI p;
-            TempData t;
-            
-            bms[i].readPackVI(p);
-            bms[i].readTempData(t);
-            if (t.avgTemp_C >= overheatTemperatureThreshold) {
-                leds.setState(Overheating);
-            }
-
-            batteryVoltage += p.totalVoltage_V / 2.0f; // Average voltage from both BMS units
-        }
-
-         if (batteryVoltage >= batteryCriticalVoltageThreshold && batteryVoltage <= batteryLowVoltageThreshold) {
-             leds.setState(Low_power);
-         } else if (batteryVoltage >= batteryDeadVoltageThreshold && batteryVoltage < batteryCriticalVoltageThreshold) {
-             leds.setState(battery_empty);
-         } else if (batteryVoltage < batteryDeadVoltageThreshold) {
-             leds.setState(battery_dead);
-         } 
-          lastCanBusBMSRead = millis();
+  //This doesn't work, the BMS does not communicate correctly with the teensy over CAN
+  if (millis() - lastCanBusBMSRead >= CAN_BUS_BMS_READ_INTERVAL) {
+      batteryVoltage = 0;
+      for (int i = 0; i < 2; i++) {
+          PackVI p;
+          TempData t;
+          
+          bms[i].readPackVI(p);
+          bms[i].readTempData(t);
+          if (t.avgTemp_C >= overheatTemperatureThreshold) {
+              leds.setState(Overheating);
+          }
+          batteryVoltage += p.totalVoltage_V / 2.0f; 
+      }
+       if (batteryVoltage >= batteryCriticalVoltageThreshold && batteryVoltage <= batteryLowVoltageThreshold) {
+           leds.setState(Low_power);
+       } else if (batteryVoltage >= batteryDeadVoltageThreshold && batteryVoltage < batteryCriticalVoltageThreshold) {
+           leds.setState(battery_empty);
+       } else if (batteryVoltage < batteryDeadVoltageThreshold) {
+           leds.setState(battery_dead);
+       } 
+        lastCanBusBMSRead = millis();
     }
-  //FIXME: Re-enable moving LED state when initial led testing of setup is done
-  // Update LED state based on movement
   
   leds.update();
   tilt.update();
@@ -404,7 +406,7 @@ void loop() {
   can3.events();  // ROS
   rclc_executor_spin_some(&executor, RCL_MS_TO_NS(10));
 
-  float accel = 4000.0f; 
+  float accel = 7000.0f; 
   
   motorFrontLeft.setAcceleration(accel);
   motorRearLeft.setAcceleration(accel);

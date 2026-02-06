@@ -111,7 +111,7 @@ class Control(Node):
             sys_msg.data = 99
             self.system_pub.publish(sys_msg)
             #Wait a moment to ensure message is sent
-            time.sleep(0.5)
+            time.sleep(2.0)
             #Execute shutdown command
             os.system("shutdown now -h")
 
