@@ -5,20 +5,20 @@
 
 class LiftingActuators {
 private:
-    int _pinIN1A, _pinIN2A, _pinENA;
-    int _pinIN1B, _pinIN2B, _pinENB;
+    HardwareSerial* _serial; // Pointer naar de Seriële poort (bijv. Serial1)
+    
     int _pinPotA, _pinPotB;
 
-    int _minPWM, _maxPWM, _deadband;
+    int _minSpeed, _maxSpeed, _deadband;
     float _kp;
     float _syncKp;
     
-    //Configuration
+    // Configuration
     const int _strokeLength = 300; 
     int _minPotA, _maxPotA; 
     int _minPotB, _maxPotB; 
     
-    int _targetPosA, _targetPosB; //Targetposition in mm
+    int _targetPosA, _targetPosB; 
     int _currentPosA, _currentPosB;
     
     int _speedA, _speedB;
@@ -26,15 +26,19 @@ private:
 
     float _currentSpeedA = 0; 
     float _currentSpeedB = 0;
-    float _acceleration = 5.0; // Speed change per update call
+    float _acceleration = 7.0; 
 
     float rampValue(float current, int target, float rampRate);
 
+    // Nieuwe interne functie voor Sabertooth communicatie
+    void sendSabertoothCommand(byte address, byte command, byte value);
     void setMotorASpeed(int speed);
     void setMotorBSpeed(int speed);
 
 public:
-    LiftingActuators(int pinIN1A, int pinIN1B, int pinIN2A, int pinIN2B, int pinENA, int pinENB, int pinPotA, int pinPotB);
+    // Constructor aangepast: verwacht nu Serial en Potentiometers
+    LiftingActuators(HardwareSerial& serial, int pinPotA, int pinPotB);
+    
     void begin();
     void update();
     
@@ -51,7 +55,7 @@ public:
     int getSpeedA(); 
     int getSpeedB();
     bool isManualMode();
-    int getTargetPositionRaw(); // Gives target of actuator A in raw potentiometer value
+    int getTargetPositionRaw(); 
 };
 
 #endif

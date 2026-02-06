@@ -1,41 +1,52 @@
 #include "LiftingActuators.h"
 
-LiftingActuators::LiftingActuators(int pinIN1A, int pinIN1B, int pinIN2A, int pinIN2B, int pinENA, int pinENB, int pinPotA, int pinPotB) {
-    _pinIN1A = pinIN1A; _pinIN2A = pinIN2A; _pinENA = pinENA;
-    _pinIN1B = pinIN1B; _pinIN2B = pinIN2B; _pinENB = pinENB;
-    _pinPotA = pinPotA; _pinPotB = pinPotB;
+// Constructor
+LiftingActuators::LiftingActuators(HardwareSerial& serial, int pinPotA, int pinPotB) {
+    _serial = &serial; // Sla de verwijzing naar Serial1 op
+    _pinPotA = pinPotA; 
+    _pinPotB = pinPotB;
 
-    _minPWM = 60; 
-    _maxPWM = 180; //Do not make this higher than 250, to avoid overloading the motor driver! (See datasheet)
+    _minSpeed = 15;  // Minimale start snelheid (Sabertooth reageert vlot)
+    _maxSpeed = 127; // MAXIMAAL 127 bij Sabertooth protocol! 
     _deadband = 3; 
-    //Control gains
-    _kp = 8.0; 
-    _syncKp = 0.3; //Correction factor for synchronization
-    //Acceleration
+    
+    _kp = 4.0;       // Misschien opnieuw tunen, Sabertooth is krachtiger!
+    _syncKp = 0.2; 
+    
     _currentSpeedA = 0;
     _currentSpeedB = 0;
-    _acceleration = 7.0; 
-    //Left (A)
+    _acceleration = 5.0; // Iets lager beginnen, kijken hoe hij reageert
+    
+    // Potentiometer Kalibratie (Check of dit nog klopt!)
     _minPotA = 905; // 0mm
     _maxPotA = 620; // 300mm    
-    //Right (B)
-    _minPotB = 905; // 0mm
-    _maxPotB = 620; // 300mm    
-    //Initial states
+    _minPotB = 905; 
+    _maxPotB = 620;   
+    
     _targetPosA = -1;
     _targetPosB = -1;
     _manualMode = true;
 }
 
 void LiftingActuators::begin() {
-    pinMode(_pinIN1A, OUTPUT); pinMode(_pinIN2A, OUTPUT); pinMode(_pinENA, OUTPUT); 
-    pinMode(_pinIN1B, OUTPUT); pinMode(_pinIN2B, OUTPUT); pinMode(_pinENB, OUTPUT);
-    pinMode(_pinPotA, INPUT);  pinMode(_pinPotB, INPUT);
-    //Turn on lifting drivers
-    digitalWrite(_pinENA, HIGH); digitalWrite(_pinENB, HIGH);
-    // Initial position read
+    // Start de Serieele poort voor de Sabertooth (9600 baud is default) [cite: 382]
+    _serial->begin(9600);
+    
+    pinMode(_pinPotA, INPUT);  
+    pinMode(_pinPotB, INPUT);
+    
     _currentPosA = analogRead(_pinPotA);
     _currentPosB = analogRead(_pinPotB);
+}
+
+// --- SABERTOOTH PROTOCOL FUNCTIE ---
+void LiftingActuators::sendSabertoothCommand(byte address, byte command, byte value) {
+    // Protocol: Address, Command, Data, Checksum [cite: 373]
+    byte checksum = (address + command + value) & 0b01111111; // [cite: 534, 535]
+    _serial->write(address);
+    _serial->write(command);
+    _serial->write(value);
+    _serial->write(checksum);
 }
 
 void LiftingActuators::setMotorASpeed(int speed) {
@@ -44,17 +55,18 @@ void LiftingActuators::setMotorASpeed(int speed) {
     if (_currentPosA < _maxPotA && speed > 0) speed = 0;
 
     _speedA = speed;
-    //Brake
-    if (speed == 0) {
-        analogWrite(_pinIN1A, 0); analogWrite(_pinIN2A, 0);
-    } 
-    //Move outward
-    else if (speed > 0) { //
-        analogWrite(_pinIN1A, speed); analogWrite(_pinIN2A, 0);
-    } 
-    //Move inward
-    else { 
-        analogWrite(_pinIN1A, 0); analogWrite(_pinIN2A, -speed);
+    
+    // Map speed (-127 tot 127) naar Sabertooth commando's
+    // Motor 1 Address = 128 (default) 
+    // Cmd 0 = Forward, Cmd 1 = Backward [cite: 445, 448]
+    
+    byte val = abs(speed);
+    val = constrain(val, 0, 127); // Safety clip
+
+    if (speed > 0) {
+        sendSabertoothCommand(128, 0, val); // 0 = Drive Forward M1
+    } else {
+        sendSabertoothCommand(128, 1, val); // 1 = Drive Backward M1
     }
 }
 
@@ -64,27 +76,27 @@ void LiftingActuators::setMotorBSpeed(int speed) {
     if (_currentPosB < _maxPotB && speed < 0) speed = 0;
   
     _speedB = speed;
-    //Brake
-    if (speed == 0) {
-        analogWrite(_pinIN1B, 0); analogWrite(_pinIN2B, 0);
-    } 
-    //Move outward
-    else if (speed > 0) {
-        analogWrite(_pinIN1B, speed); analogWrite(_pinIN2B, 0);
-    } 
-    //Move inward
-    else {
-        analogWrite(_pinIN1B, 0); analogWrite(_pinIN2B, -speed);
+
+    // Motor 2
+    // Cmd 4 = Forward, Cmd 5 = Backward [cite: 466, 469]
+    
+    byte val = abs(speed);
+    val = constrain(val, 0, 127);
+
+    if (speed > 0) {
+        sendSabertoothCommand(128, 4, val); // 4 = Drive Forward M2
+    } else {
+        sendSabertoothCommand(128, 5, val); // 5 = Drive Backward M2
     }
 }
 
 float LiftingActuators::rampValue(float current, int target, float rampRate) {
     if (current < target) {
         current += rampRate;
-        if (current > target) current = target; // Don't overshoot
+        if (current > target) current = target; 
     } else if (current > target) {
         current -= rampRate;
-        if (current < target) current = target; // Don't overshoot
+        if (current < target) current = target; 
     }
     return current;
 }
@@ -95,65 +107,64 @@ void LiftingActuators::update() {
     
     if (_manualMode) return;
     if (_targetPosA == -1) return;
-    //Convert everything to mm for easier calculations
+    
     int currentMM_A = map(_currentPosA, _minPotA, _maxPotA, 0, _strokeLength);
     int currentMM_B = map(_currentPosB, _minPotB, _maxPotB, 0, _strokeLength);
-    int targetMM    = map(_targetPosA,  _minPotA, _maxPotA, 0, _strokeLength); //Goal of A is leading
-    //Calculate average position and error
+    int targetMM    = map(_targetPosA,  _minPotA, _maxPotA, 0, _strokeLength); 
+    
     int avgCurrent = (currentMM_A + currentMM_B) / 2;
     int distanceError = targetMM - avgCurrent;
 
-    int targetPWM_A = 0;
-    int targetPWM_B = 0;
+    int targetSpeed_A = 0;
+    int targetSpeed_B = 0;
 
-    if (abs(distanceError) >= 3) {
-        int basePWM = distanceError * _kp;
-        int maxBaseSpeed = 200; 
+    if (abs(distanceError) >= _deadband) {
+        int baseSpeed = distanceError * _kp;
+        int maxBaseSpeed = 100; // Iets lager dan 127 om ruimte te houden voor correcties
         
-        if (basePWM > 0) basePWM = constrain(basePWM, _minPWM, maxBaseSpeed);
-        else basePWM = constrain(basePWM, -maxBaseSpeed, -_minPWM);
+        if (baseSpeed > 0) baseSpeed = constrain(baseSpeed, _minSpeed, maxBaseSpeed);
+        else baseSpeed = constrain(baseSpeed, -maxBaseSpeed, -_minSpeed);
+        
         // Sync calculation
         int syncError = currentMM_A - currentMM_B; 
         int syncCorrection = syncError * _syncKp;
-        // Calculate DESIRED PWM
-        targetPWM_A = basePWM - syncCorrection;
-        targetPWM_B = basePWM + syncCorrection;
-        // Safety constraints
-        targetPWM_A = constrain(targetPWM_A, -_maxPWM, _maxPWM);
-        targetPWM_B = constrain(targetPWM_B, -_maxPWM, _maxPWM);
+        
+        targetSpeed_A = baseSpeed - syncCorrection;
+        targetSpeed_B = baseSpeed + syncCorrection;
+        
+        // Safety constraints (Sabertooth max = 127)
+        targetSpeed_A = constrain(targetSpeed_A, -127, 127);
+        targetSpeed_B = constrain(targetSpeed_B, -127, 127);
     }
     
-    _currentSpeedA = rampValue(_currentSpeedA, targetPWM_A, _acceleration);
-    _currentSpeedB = rampValue(_currentSpeedB, targetPWM_B, _acceleration);
-    // Send the ramped value to the motors
+    _currentSpeedA = rampValue(_currentSpeedA, targetSpeed_A, _acceleration);
+    _currentSpeedB = rampValue(_currentSpeedB, targetSpeed_B, _acceleration);
+    
     setMotorASpeed((int)_currentSpeedA);
     setMotorBSpeed((int)_currentSpeedB);
 }
 
-
 void LiftingActuators::setTargetPosition(int mm) {
     _manualMode = false; 
-    mm = constrain(mm, 0, _strokeLength); // 0 to 300
-    
+    mm = constrain(mm, 0, _strokeLength);
     _targetPosA = map(mm, 0, _strokeLength, _minPotA, _maxPotA);
     _targetPosB = map(mm, 0, _strokeLength, _minPotB, _maxPotB);
 }
 
 void LiftingActuators::setManualSpeed(float input) {
     _manualMode = true; 
-    _targetPosA = -1; // Reset auto targets
+    _targetPosA = -1; 
     _targetPosB = -1;
     
-    //Deadzone and base PWM calculation
-    int rawPWM = (int)(input * _maxPWM);
+    // Input is -1.0 tot 1.0. Sabertooth wil max 127.
+    int rawSpeed = (int)(input * 127.0); 
     
-    int targetPWM_A = 0;
-    int targetPWM_B = 0;
+    int targetSpeed_A = 0;
+    int targetSpeed_B = 0;
 
-    // Only if we have input greater than deadzone
-    if (abs(rawPWM) >= 40) {
-        int maxBaseSpeed = 200;
-        int basePWM = constrain(rawPWM, -maxBaseSpeed, maxBaseSpeed);
+    if (abs(rawSpeed) >= 20) { // Deadzone iets kleiner bij Serial
+        int maxBaseSpeed = 100;
+        int baseSpeed = constrain(rawSpeed, -maxBaseSpeed, maxBaseSpeed);
 
         int mmA = map(_currentPosA, _minPotA, _maxPotA, 0, _strokeLength);
         int mmB = map(_currentPosB, _minPotB, _maxPotB, 0, _strokeLength);
@@ -161,15 +172,15 @@ void LiftingActuators::setManualSpeed(float input) {
         int syncError = mmA - mmB; 
         int syncCorrection = syncError * _syncKp;
 
-        targetPWM_A = basePWM - syncCorrection;
-        targetPWM_B = basePWM + syncCorrection;
+        targetSpeed_A = baseSpeed - syncCorrection;
+        targetSpeed_B = baseSpeed + syncCorrection;
 
-        targetPWM_A = constrain(targetPWM_A, -_maxPWM, _maxPWM);
-        targetPWM_B = constrain(targetPWM_B, -_maxPWM, _maxPWM);
+        targetSpeed_A = constrain(targetSpeed_A, -127, 127);
+        targetSpeed_B = constrain(targetSpeed_B, -127, 127);
     }
-    // Ramp the speeds for smoothness
-     _currentSpeedA = rampValue(_currentSpeedA, targetPWM_A, _acceleration);
-    _currentSpeedB = rampValue(_currentSpeedB, targetPWM_B, _acceleration);
+    
+     _currentSpeedA = rampValue(_currentSpeedA, targetSpeed_A, _acceleration);
+    _currentSpeedB = rampValue(_currentSpeedB, targetSpeed_B, _acceleration);
     
     setMotorASpeed((int)_currentSpeedA);
     setMotorBSpeed((int)_currentSpeedB);
