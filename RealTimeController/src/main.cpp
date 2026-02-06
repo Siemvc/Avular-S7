@@ -237,7 +237,7 @@ void setup() {
   bms[0].init(can2);
   bms[1].init(can2);
 
-  leds.begin(23, 8); //led_PIN , Num_leds
+  leds.begin(23, 10); //led_PIN , Num_leds
 
   analogReadResolution(10); 
   
