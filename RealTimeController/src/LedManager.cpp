@@ -4,7 +4,7 @@ void LedManager::begin(int pin, int numLeds) {
     _numLeds = numLeds;
     _leds = new CRGB[_numLeds];
 
-    FastLED.addLeds<WS2812, pin, GRB>(_leds, _numLeds); 
+    FastLED.addLeds<WS2812, 23, GRB>(_leds, _numLeds); 
     FastLED.setBrightness(_brightness);
 
     _currentMode = Startup;

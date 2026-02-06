@@ -38,6 +38,7 @@ FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16> can2;
 //LEDS configuration
 LedManager leds;
 
+elapsedMillis debugTimer;
 elapsedMillis heartBeatTimer; //Timer for the CAN heartbeat
 unsigned long lastMovementTime = 0; // Timestamp of the last detected movement (ms)
 
