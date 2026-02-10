@@ -44,8 +44,7 @@ unsigned long lastMovementTime = 0; // Timestamp of the last detected movement (
 
 // Configuration Actuators
 TiltingActuator tilt(28, 29, 12, 27); //In1, IN2, PWM, Potentiometer
-//LiftingActuators lift(5, 7, 6, 8, 4, 3, 26, 25);//IN1A, IN1B, IN2A, IN2B, ENA, ENB, PotA, PotB
-LiftingActuators lift(Serial8, 26, 25); //Serial1 voor Sabertooth communicatie, PotA, PotB
+LiftingActuators lift(5, 7, 6, 8, 4, 3, 26, 25);//IN1A, IN1B, IN2A, IN2B, ENA, ENB, PotA, PotB
 
 // Driving Configuration
 const float maxRPM = 5000.0f;  // Max RPM of the motors
