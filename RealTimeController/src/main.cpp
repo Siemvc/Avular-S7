@@ -55,7 +55,7 @@ MotorDriver motorFrontRight(12);
 MotorDriver motorFrontLeft(13);
 MotorDriver motorRearLeft(14);
 bool invertMotorLeft = false; //Invert right side motors
-bool invertMotorRight = true;
+bool invertMotorRight = false;
 
 //ROS Objects 
 rcl_node_t node;
