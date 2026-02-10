@@ -46,8 +46,7 @@ De robot wordt bestuurd met een Sony DualShock 4 controller via bluethooth.
 | **Kruisje (X)** | Preset: Rij-stand | Arm laag, bak ingetrokken (Veilig rijden) |
 | **Rondje (O)** | Preset: Transport | Arm op halfhoogte (Voor laden/lossen) |
 | **Driehoekje (△)** | Preset: Dump Hoog | Arm maximaal omhoog, bak in kiepstand |
-
-| **Share + Options** | **SHUTDOWN** | Sluit de Linux PC veilig af (LEDs -> Paars) | (werkt wel) 
+| **Share + Options** | **SHUTDOWN** | Sluit de Linux PC veilig af (LEDs -> Paars) (werkt wel)  | 
 
 ---
 
