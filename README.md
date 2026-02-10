@@ -40,7 +40,7 @@ De robot wordt bestuurd met een Sony DualShock 4 controller via bluethooth.
 | **Linker Joystick** | Rijden (Skid Steer) | Omhoog/Omlaag = Gas, Links/Rechts = Draaien |
 | **Rechter Joystick** | Hefarm & Bak | Omhoog/Omlaag = Arm, Links/Rechts = Bak Kantelen |
 
-### Knoppen & Presets
+### Knoppen & Presets (WERKT NIET)
 | Knop | Functie | Actie |
 | :--- | :--- | :--- |
 | **Kruisje (X)** | Preset: Rij-stand | Arm laag, bak ingetrokken (Veilig rijden) |
