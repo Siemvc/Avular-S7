@@ -209,41 +209,6 @@ void CallbackActuator(const void * msgin) {
   }
 }
 
-//Callback buttons
-void CallbackButtons(const void * msgin) {
-    if (standby_active) {
-      // If in standby, ignore actuator commands
-      motorFrontLeft.setSpeed(0);
-      motorRearLeft.setSpeed(0);
-      motorFrontRight.setSpeed(0);
-      motorRearRight.setSpeed(0);
-      lift.setManualSpeed(0);
-      tilt.setManualSpeed(0);
-      return;
-    } 
-  
-  const std_msgs__msg__Int32 * msg = (const std_msgs__msg__Int32 *)msgin;
-  debug_last_preset = msg->data;
-  // 0 = Cross [Enter positon name here]
-  if (msg->data == 0) { 
-      lift.setTargetPosition(15); //Distance in mm
-      tilt.setTargetPosition(50);  //Distance in mm
-      PublishDebug("Preset: MODE NAME");
-  }
-  // 1 = Round [Enter positon name here]
-  else if (msg->data == 1) { 
-      lift.setTargetPosition(30); //Distance in mm
-      tilt.setTargetPosition(100); //Distance in mm
-      PublishDebug("Preset: MODE NAME");
-  }
-  // 2 = Triangle (Dump Hoog)
-  else if (msg->data == 2) { 
-      lift.setTargetPosition(90);  //Distance in mm
-      tilt.setTargetPosition(200); //Distance in mm
-      PublishDebug("Preset: MODE NAME");
-  }
-}
-
 // CAN Sniffer for all motor drivers
 void CanSniff(const CAN_message_t &msg) {
     motorFrontLeft.parseCanMessage(msg);
@@ -321,7 +286,6 @@ void setup() {
   //Messages
   rclc_executor_init(&executor, &support.context, 6, &allocator); 
   rclc_executor_add_subscription(&executor, &sub_actuator, &msg_twist, &CallbackActuator, ON_NEW_DATA);
-  rclc_executor_add_subscription(&executor, &sub_buttons, &msg_buttons, &CallbackButtons, ON_NEW_DATA);
   rclc_executor_add_subscription(&executor, &sub_standby, &msg_standby, &CallbackStandby, ON_NEW_DATA);
   rclc_executor_add_subscription(&executor, &sub_system, &msg_system, &CallbackSystem, ON_NEW_DATA);
 
