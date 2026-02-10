@@ -59,10 +59,10 @@ De LED-strips geven visuele feedback over de staat van de robot en veiligheid.
 | **Blauw (Ademend)** | Standby | Systeem is klaar en verbonden, maar motoren staan stil. |
 | **Groen (Vast)** | Driving | Robot is in beweging (**Pas op!**). |
 | **Groen (Ademend)** | Operational | Robot is actief, maar staat momenteel stil. |
-| **Rood (Vast)** | E_Brake | Noodstop is ingedrukt of software blokkade. |
-| **Geel (Vast)** | Low_power | Accu spanning is laag (< 19V). Opladen nodig. |
+| **Rood (Vast)** | E_Brake | Noodstop is ingedrukt of software blokkade. (werkt niet)|
+| **Geel (Vast)** | Low_power | Accu spanning is laag (< 19V). Opladen nodig. (werkt niet)|
 | **Magenta (Vast)** | Shutdown | **VEILIG:** PC is uitgeschakeld. Stroom mag eraf. |
-| **Rood/Oranje (Knipperend)**| Battery_empty | Kritiek accuniveau. Systeem schakelt uit. |
+| **Rood/Oranje (Knipperend)**| Battery_empty | Kritiek accuniveau. Systeem schakelt uit. (werkt niet)|
 
 ---
 
