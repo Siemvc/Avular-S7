@@ -114,5 +114,5 @@ Als je wijzigingen aanbrengt in de C++ code:
     - Controleer of de controller aan staat (brandend licht).
     - Check of de Linux PC de controller ziet via:
       ```bash
-    ros2 run joy joy_node
-    ```
+        ros2 run joy joy_node
+        ```
